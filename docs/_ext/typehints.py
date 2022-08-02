@@ -13,7 +13,7 @@ def format_annotation(annotation):
         if annotation.__qualname__ == 'NoneType':
             return '``None``'
         else:
-            return ':py:class:`{}`'.format(annotation.__qualname__)
+            return f':py:class:`{annotation.__qualname__}`'
 
     annotation_cls = (
         annotation if inspect.isclass(annotation) else type(annotation))
@@ -75,10 +75,9 @@ def format_annotation(annotation):
             params = annotation.__parameters__
 
         if params:
-            extra = '\\[{}]'.format(
-                ', '.join(format_annotation(param) for param in params))
+            extra = f"\\[{', '.join((format_annotation(param) for param in params))}]"
 
-        return '{}`~typing.{}`{}'.format(prefix, class_name, extra)
+        return f'{prefix}`~typing.{class_name}`{extra}'
     elif annotation is Ellipsis:
         return '...'
     elif inspect.isclass(annotation):
@@ -88,10 +87,7 @@ def format_annotation(annotation):
                 format_annotation(param)
                 for param in annotation.__parameters__))
 
-        return ':py:class:`~{}.{}`{}'.format(
-            annotation.__module__,
-            annotation.__qualname__,
-            extra)
+        return f':py:class:`~{annotation.__module__}.{annotation.__qualname__}`{extra}'
     else:
         return str(annotation)
 
@@ -99,10 +95,10 @@ def format_annotation(annotation):
 def process_signature(app, what: str, name: str, obj, options,
                       signature, return_annotation):
     if callable(obj) and getattr(obj, '__annotations__', None):
-        if what in ('class', 'exception'):
+        if what in {'class', 'exception'}:
             obj = getattr(obj, '__init__')
 
-        bound_method = what in ('method', 'class', 'exception')
+        bound_method = what in {'method', 'class', 'exception'}
         obj = inspect.unwrap(obj)
         try:
             sig = Signature(obj, bound_method=bound_method)
@@ -146,21 +142,18 @@ def process_docstring(app, what, name, obj, options, lines):
                         break
 
                 if insert_index is not None:
-                    lines.insert(insert_index, ':rtype: {}'.format(
-                        formatted_annotation))
+                    lines.insert(insert_index, f':rtype: {formatted_annotation}')
             else:
-                searchfor = ':param {}:'.format(argname)
+                searchfor = f':param {argname}:'
                 for i, line in enumerate(lines):
                     if line.startswith(searchfor):
-                        lines.insert(i, ':type {}: {}'.format(
-                            argname, formatted_annotation))
+                        lines.insert(i, f':type {argname}: {formatted_annotation}')
                         break
-                searchfor2 = ':keyword {}:'.format(argname)
+                searchfor2 = f':keyword {argname}:'
                 for i, line in enumerate(lines):
                     line.replace(':keyword ', ':param ')
                     if line.startswith(searchfor2):
-                        lines.insert(i, ':type {}: {}'.format(
-                            argname, formatted_annotation))
+                        lines.insert(i, f':type {argname}: {formatted_annotation}')
                         break
 
 

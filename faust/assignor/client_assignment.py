@@ -117,7 +117,7 @@ class ClientAssignment(Record,
     def add_copartitioned_assignment(
             self, assignment: CopartitionedAssignment) -> None:
         assigned = set(self.actives.keys()).union(set(self.standbys.keys()))
-        assert not any(topic in assigned for topic in assignment.topics)
+        assert all(topic not in assigned for topic in assignment.topics)
         for topic in assignment.topics:
             self.actives[topic] = list(assignment.actives)
             self.standbys[topic] = list(assignment.standbys)

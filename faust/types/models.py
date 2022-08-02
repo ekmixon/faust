@@ -43,11 +43,8 @@ try:
     class _InitSubclassCheck(metaclass=abc.ABCMeta):
         ident: int
 
-        def __init_subclass__(self,
-                              *args: Any,
-                              ident: int = 808,
-                              **kwargs: Any) -> None:
-            self.ident = ident
+        def __init_subclass__(cls, *args: Any, ident: int = 808, **kwargs: Any) -> None:
+            cls.ident = ident
             super().__init__(*args, **kwargs)
 
     @typing.no_type_check  # type: ignore

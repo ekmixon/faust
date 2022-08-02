@@ -337,18 +337,17 @@ class Conductor(ConductorT, Service):
         assignmap = tp_set_to_map(assigned)
         tp_index = self._tp_index
         for topic in self._topics:
-            if topic.active_partitions is not None:
-                # Isolated Partitions: One agent per partition.
-                if topic.active_partitions:
-                    if assigned:
-                        assert topic.active_partitions.issubset(assigned)
-                    for tp in topic.active_partitions:
-                        tp_index[tp].add(topic)
-            else:
+            if topic.active_partitions is None:
                 # Default: One agent receives messages for all partitions.
                 for subtopic in topic.topics:
                     for tp in assignmap[subtopic]:
                         tp_index[tp].add(topic)
+
+            elif topic.active_partitions:
+                if assigned:
+                    assert topic.active_partitions.issubset(assigned)
+                for tp in topic.active_partitions:
+                    tp_index[tp].add(topic)
 
     def _update_callback_map(self) -> None:
         self._tp_to_callback.update(

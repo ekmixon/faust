@@ -8,7 +8,7 @@ from mode.utils.mocks import AsyncMock, Mock
 class test_AgentManager:
 
     def create_agent(self, name, topic_names=None):
-        agent = Mock(
+        return Mock(
             name=name,
             maybe_start=AsyncMock(),
             stop=AsyncMock(),
@@ -17,12 +17,10 @@ class test_AgentManager:
             on_partitions_assigned=AsyncMock(),
             get_topic_names=Mock(return_value=topic_names),
         )
-        return agent
 
     @pytest.fixture()
     def agents(self, *, app):
-        agents = app.agents
-        return agents
+        return app.agents
 
     @pytest.fixture()
     def agent1(self):

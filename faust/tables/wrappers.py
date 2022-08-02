@@ -398,12 +398,9 @@ class WindowWrapper(WindowWrapperT):
     def get_timestamp(self, event: EventT = None) -> float:
         """Get timestamp from event."""
         event = event or current_event()
-        get_relative_timestamp = self.get_relative_timestamp
-        if get_relative_timestamp:
+        if get_relative_timestamp := self.get_relative_timestamp:
             timestamp = get_relative_timestamp(event)
-            if isinstance(timestamp, datetime):
-                return timestamp.timestamp()
-            return timestamp
+            return timestamp.timestamp() if isinstance(timestamp, datetime) else timestamp
         if event is None:
             raise RuntimeError('Operation outside of stream iteration')
         return event.message.timestamp
@@ -427,9 +424,8 @@ class WindowWrapper(WindowWrapperT):
     def on_set_key(self, key: Any, value: Any) -> None:
         """Call when the value for a key in this table is set."""
         key_index_table = self.key_index_table
-        if key_index_table is not None:
-            if key not in key_index_table:
-                key_index_table[key] = 1
+        if key_index_table is not None and key not in key_index_table:
+            key_index_table[key] = 1
 
     def on_del_key(self, key: Any) -> None:
         """Call when a key is deleted from this table."""
@@ -472,8 +468,7 @@ class WindowWrapper(WindowWrapperT):
     def _keys(self) -> Iterator:
         key_index_table = self.key_index_table
         if key_index_table is not None:
-            for key in key_index_table.keys():
-                yield key
+            yield from key_index_table.keys()
         else:
             raise NotImplementedError(
                 'Windowed table must set use_index=True to '

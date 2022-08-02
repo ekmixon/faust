@@ -33,7 +33,7 @@ class PartitionsNotStarved(checks.Check):
         differing = {}
         for partition, prev_number in prev_value.items():
             current_number = current_value[partition]
-            if current_value[partition] <= prev_number:
+            if current_number <= prev_number:
                 differing[partition] = (prev_number, current_number)
 
         if differing:
@@ -120,31 +120,29 @@ async def process(numbers: Stream[int]) -> None:
                 print('Pausing stream to fill topics')
                 await app.sleep(100.0)
 
-        if previous_number is not None:
-            if number > 0:
+        if previous_number is not None and number > 0:
                 # 0 is fine, means leader restarted.
 
-                if number <= previous_number:
-                    # Remember, the key is the partition.
-                    # So the previous value set for any partition,
-                    # should always be the same as the previous value in the
-                    # topic.
-                    #
-                    # if number is less than previous number, it means
-                    # we have missed counting one (the sequence counts
-                    # WITH THE OFFSET after all!)
-                    # if the number is less than we have a problem.
-                    app.log.error('Found duplicate number in %r: %r',
-                                  event.message.tp, number)
-                    found_duplicates += 1
-                else:
-                    if number != previous_number + 1:
-                        # number should always be one up from the last,
-                        # otherwise we dropped a number.
-                        app.log.error(
-                            'Sequence gap for tp %r: this=%r previous=%r',
-                            event.message.tp, number, previous_number)
-                        found_gaps += 1
+            if number <= previous_number:
+                # Remember, the key is the partition.
+                # So the previous value set for any partition,
+                # should always be the same as the previous value in the
+                # topic.
+                #
+                # if number is less than previous number, it means
+                # we have missed counting one (the sequence counts
+                # WITH THE OFFSET after all!)
+                # if the number is less than we have a problem.
+                app.log.error('Found duplicate number in %r: %r',
+                              event.message.tp, number)
+                found_duplicates += 1
+            elif number != previous_number + 1:
+                # number should always be one up from the last,
+                # otherwise we dropped a number.
+                app.log.error(
+                    'Sequence gap for tp %r: this=%r previous=%r',
+                    event.message.tp, number, previous_number)
+                found_gaps += 1
         table[partition] = number
         processed_by_partition[partition] += 1
         processed_total += 1

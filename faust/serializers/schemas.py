@@ -156,10 +156,10 @@ class Schema(SchemaT):
         return decode
 
     def __repr__(self) -> str:
-        KT = self.key_type if self.key_type else '*default*'
+        KT = self.key_type or '*default*'
         VT = self.key_type if self.value_type else '*default*'
-        ks = self.key_serializer if self.key_serializer else '*default*'
-        vs = self.value_serializer if self.value_serializer else '*default*'
+        ks = self.key_serializer or '*default*'
+        vs = self.value_serializer or '*default*'
         return (f'<{type(self).__name__}: '
                 f'KT={KT} ({ks}) '
                 f'VT={VT} ({vs})'

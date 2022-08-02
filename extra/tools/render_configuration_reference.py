@@ -89,7 +89,7 @@ class Rst:
 
     def _class(self, value: str) -> str:
         if '.' in value:
-            value = '~' + value
+            value = f'~{value}'
         return self.ref('class', value)
 
     def option(self, value: str) -> str:
@@ -128,11 +128,12 @@ class Rst:
                         break
                 if non_whitespace_index:
                     break
-        if not non_whitespace_index:
-            return text
-        return '\n'.join(
-            self.strip_space(non_whitespace_index, line)
-            for line in lines
+        return (
+            '\n'.join(
+                self.strip_space(non_whitespace_index, line) for line in lines
+            )
+            if non_whitespace_index
+            else text
         )
 
     def strip_space(self, n: int, line: str) -> str:

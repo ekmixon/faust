@@ -384,11 +384,6 @@ class Stream(StreamT[T_co], Service):
                         notify(buffer_consuming)
                         buffer_full.clear()
                         buffer_consumed.set()
-                else:  # pragma: no cover
-                    pass
-            else:  # pragma: no cover
-                pass
-
         finally:
             # Restore last behaviour of "enable_acks"
             self.enable_acks = stream_enable_acks
@@ -578,9 +573,9 @@ class Stream(StreamT[T_co], Service):
 
             prefix = ''
             if self.prefix and not cast(TopicT, self.channel).has_prefix:
-                prefix = self.prefix + '-'
+                prefix = f'{self.prefix}-'
             suffix = f'-{name}-repartition'
-            p = partitions if partitions else self.app.conf.topic_partitions
+            p = partitions or self.app.conf.topic_partitions
             channel = cast(ChannelT, self.channel).derive(
                 prefix=prefix, suffix=suffix, partitions=p, internal=True)
         format_key = self._format_key
@@ -715,12 +710,7 @@ class Stream(StreamT[T_co], Service):
 
     async def on_merge(self, value: T = None) -> Optional[T]:
         """Signal called when an event is to be joined."""
-        # TODO for joining streams
-        # The join strategy.process method can return None
-        # to eat the value, and on the next event create a merged
-        # event out of the previous event and new event.
-        join_strategy = self.join_strategy
-        if join_strategy:
+        if join_strategy := self.join_strategy:
             value = await join_strategy.process(value)
         return value
 
@@ -751,10 +741,7 @@ class Stream(StreamT[T_co], Service):
         raise NotImplementedError('Streams are asynchronous: use `async for`')
 
     def __aiter__(self) -> AsyncIterator[T_co]:  # pragma: no cover
-        if _CStreamIterator is not None:
-            return self._c_aiter()
-        else:
-            return self._py_aiter()
+        return self._c_aiter() if _CStreamIterator is not None else self._py_aiter()
 
     async def _c_aiter(self) -> AsyncIterator[T_co]:  # pragma: no cover
         self.log.dev('Using Cython optimized __aiter__')

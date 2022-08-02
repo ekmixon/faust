@@ -29,12 +29,11 @@ async def count(stream):
         count = event.value
         prev = seen.get(partition)
         prev_offset = prev_offsets.get(partition)
-        if prev is not None:
-            if count != prev + 1:
-                print(f'!!! PREV {partition} WAS {prev} NOW {count}')
-                print(f'OFFSET: {event.message.offset} PREV: {prev_offset}')
-                import time
-                time.sleep(3600)
+        if prev is not None and count != prev + 1:
+            print(f'!!! PREV {partition} WAS {prev} NOW {count}')
+            print(f'OFFSET: {event.message.offset} PREV: {prev_offset}')
+            import time
+            time.sleep(3600)
         seen[partition] = count
         prev_offsets[partition] = event.message.offset
         counts[str(partition)] += count

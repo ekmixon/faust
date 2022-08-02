@@ -47,7 +47,7 @@ BUNDLES = {
 CFLAGS = ['-O2']
 LDFLAGS = []
 LIBRARIES = []
-E_UNSUPPORTED_PYTHON = NAME + ' 1.0 requires Python %%s or later!'
+E_UNSUPPORTED_PYTHON = f'{NAME} 1.0 requires Python %%s or later!'
 
 if sys.version_info < (3, 6):
     raise Exception(E_UNSUPPORTED_PYTHON % ('3.6',))  # NOQA
@@ -70,26 +70,27 @@ ext = '.pyx' if USE_CYTHON else '.c'
 extensions = [
     Extension(
         'faust._cython.windows',
-        ['faust/_cython/windows' + ext],
+        [f'faust/_cython/windows{ext}'],
         libraries=LIBRARIES,
         extra_compile_args=CFLAGS,
         extra_link_args=LDFLAGS,
     ),
     Extension(
         'faust._cython.streams',
-        ['faust/_cython/streams' + ext],
+        [f'faust/_cython/streams{ext}'],
         libraries=LIBRARIES,
         extra_compile_args=CFLAGS,
         extra_link_args=LDFLAGS,
     ),
     Extension(
         'faust.transport._cython.conductor',
-        ['faust/transport/_cython/conductor' + ext],
+        [f'faust/transport/_cython/conductor{ext}'],
         libraries=LIBRARIES,
         extra_compile_args=CFLAGS,
         extra_link_args=LDFLAGS,
     ),
 ]
+
 
 
 if USE_CYTHON:
@@ -141,9 +142,8 @@ with open(here / NAME / '__init__.py') as meta_fh:
         if line.strip() == '# -eof meta-':
             break
         for pattern, handler in pats.items():
-            m = pattern.match(line.strip())
-            if m:
-                meta.update(handler(m))
+            if m := pattern.match(line.strip()):
+                meta |= handler(m)
 
 # -*- Installation Requires -*-
 
@@ -177,7 +177,7 @@ def extras(*p):
 
 def extras_require():
     """Get map of all extra requirements."""
-    return {x: extras(x + '.txt') for x in BUNDLES}
+    return {x: extras(f'{x}.txt') for x in BUNDLES}
 
 
 # -*- Long Description -*-
@@ -186,7 +186,7 @@ def extras_require():
 if README.exists():
     long_description = README.read_text(encoding='utf-8')
 else:
-    long_description = 'See http://pypi.org/project/{}'.format(NAME)
+    long_description = f'See http://pypi.org/project/{NAME}'
 
 # -*- %%% -*-
 

@@ -64,8 +64,7 @@ class LiveCheckSensor(Sensor):
                             event: EventT,
                             state: Dict = None) -> None:
         """Call when stream is finished handling event."""
-        has_active_test = getattr(stream, 'current_test', None)
-        if has_active_test:
+        if has_active_test := getattr(stream, 'current_test', None):
             stream.current_test = None  # type: ignore
             current_test_stack.pop()
 
@@ -297,9 +296,7 @@ class LiveCheck(faust.App):
 
     async def post_report(self, report: TestReport) -> None:
         """Publish test report to reporting topic."""
-        key = None
-        if report.test is not None:
-            key = report.test.id
+        key = report.test.id if report.test is not None else None
         await self.reports.send(key=key, value=report)
 
     async def on_start(self) -> None:
@@ -353,9 +350,10 @@ class LiveCheck(faust.App):
 
     def _prepare_case_name(self, name: str) -> str:
         if name.startswith('__main__.'):
-            if not self.conf.origin:
+            if self.conf.origin:
+                return self.conf.origin + name[8:]
+            else:
                 raise RuntimeError('LiveCheck app missing origin argument')
-            return self.conf.origin + name[8:]
         return name
 
     @cached_property

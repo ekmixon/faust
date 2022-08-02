@@ -89,9 +89,7 @@ class CacheBackend(base.CacheBackend):
 
     async def _get(self, key: str) -> Optional[bytes]:
         value: Optional[bytes] = await self.client.get(key)
-        if value is not None:
-            return want_bytes(value)
-        return None
+        return want_bytes(value) if value is not None else None
 
     async def _set(self, key: str, value: bytes,
                    timeout: float = None) -> None:

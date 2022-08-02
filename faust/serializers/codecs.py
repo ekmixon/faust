@@ -240,9 +240,7 @@ class Codec(CodecT):
 
     def __or__(self, other: Any) -> Any:
         # codecs can be chained together, e.g. binary() | json()
-        if isinstance(other, CodecT):
-            return self.clone(other)
-        return NotImplemented
+        return self.clone(other) if isinstance(other, CodecT) else NotImplemented
 
     def __repr__(self) -> str:
         return ' | '.join('{0}({1})'.format(

@@ -148,11 +148,10 @@ class ConsistencyChecker(object):
                 for partition, offset, _, _ in partition_resps
             }
 
-            if positions != source_highwaters:
-                print('There is lag. Waiting!')
-                await asyncio.sleep(2.0)
-            else:
+            if positions == source_highwaters:
                 return
+            print('There is lag. Waiting!')
+            await asyncio.sleep(2.0)
 
     async def check_consistency(self):
         self._analyze()
@@ -161,8 +160,8 @@ class ConsistencyChecker(object):
     def _analyze(self):
         res = self._changelog_builder.table
         truth = self._source_builder.table
-        print('Res: {} keys | Truth: {} keys'.format(len(res), len(truth)))
-        print('Res keys subset of truth: {}'.format(set(res).issubset(truth)))
+        print(f'Res: {len(res)} keys | Truth: {len(truth)} keys')
+        print(f'Res keys subset of truth: {set(res).issubset(truth)}')
 
         self._analyze_keys()
         self._analyze_key_partitions()
@@ -171,15 +170,10 @@ class ConsistencyChecker(object):
         res = self._changelog_builder.table
         truth = self._source_builder.table
 
-        # Analyze keys
-        keys_same = True
-        for key in res:
-            if truth[key] != res[key]:
-                keys_same = False
-                break
-        print('Keys in res have the same value in truth: {}'.format(keys_same))
+        keys_same = all(truth[key] == res[key] for key in res)
+        print(f'Keys in res have the same value in truth: {keys_same}')
         diff_keys = [k for k in res if truth[k] != res[k]]
-        print('{} differing keys'.format(len(diff_keys)))
+        print(f'{len(diff_keys)} differing keys')
 
         for key in diff_keys:
             self._analyze_non_atomic_commit(key)
@@ -192,7 +186,7 @@ class ConsistencyChecker(object):
         return source_messages, cl_messages
 
     def _analyze_non_atomic_commit(self, key):
-        print('Analyzing key: {}'.format(key))
+        print(f'Analyzing key: {key}')
         source_messages, cl_messages = self._get_messages_for_key(key)
         print('# source messages: {} # cl messags: {}'.format(len(
             source_messages), len(cl_messages)))
@@ -202,8 +196,7 @@ class ConsistencyChecker(object):
             while True:
                 cl_sum = self._changelog_builder.get_value(cl_messages[cl_pos])
                 if cl_sum > source_sum:
-                    print('Key diverged at: source: {}, changelog: '
-                          '{}'.format(i, cl_pos))
+                    print(f'Key diverged at: source: {i}, changelog: {cl_pos}')
                     return
                 elif cl_sum == source_sum:
                     break
@@ -216,11 +209,13 @@ class ConsistencyChecker(object):
         truth_kps = self._source_builder.key_tps
 
         # Analyze key partitions
-        print('Res kps and truth kps have same keys: {}'.format(
-            res_kps.keys() == truth_kps.keys()))
+        print(
+            f'Res kps and truth kps have same keys: {res_kps.keys() == truth_kps.keys()}'
+        )
+
         diff_kps = [(key, truth_kps[key], res_kps[key])
                     for key in truth_kps if truth_kps[key] != res_kps[key]]
-        print('Key partitions are the same: {}'.format(not diff_kps))
+        print(f'Key partitions are the same: {not diff_kps}')
 
     def _assert_results(self):
         res = self._changelog_builder.table

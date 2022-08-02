@@ -164,14 +164,10 @@ class PartitionAssignor(
                 logger.warning('Ignoring missing topic: %r', topic)
                 continue
             topics_by_partitions[num_partitions].add(topic)
-        # We group copartitioned topics by subscribed clients such that
-        # a group of co-subscribed topics with the same number of partitions
-        # are copartitioned
-        copart_grouped = {
+        return {
             num_partitions: cls._group_co_subscribed(topics, subscriptions)
             for num_partitions, topics in topics_by_partitions.items()
         }
-        return copart_grouped
 
     @classmethod
     def _get_client_metadata(
@@ -285,12 +281,11 @@ class PartitionAssignor(
             assignments, partitions_by_topic)
 
         changelog_distribution = self._get_changelog_distribution(assignments)
-        res = self._protocol_assignments(
+        return self._protocol_assignments(
             assignments,
             changelog_distribution,
             topic_to_group_id,
         )
-        return res
 
     def _global_table_standby_assignments(
             self,
@@ -304,7 +299,7 @@ class PartitionAssignor(
                 changelog_topic_name = table._changelog_topic_name()
                 num_partitions = partitions_by_topic[changelog_topic_name]
                 assert num_partitions is not None
-                all_partitions = set(range(0, num_partitions))
+                all_partitions = set(range(num_partitions))
                 for assignment in assignments.values():
                     active_partitions = set(
                         assignment.actives.get(

@@ -411,19 +411,6 @@ class test_Agent:
         aref = agent2(index=0, active_partitions=None)
         asyncio.ensure_future(aref.it).cancel()  # silence warning
         return
-        with patch('asyncio.Task') as Task:
-            agent2._execute_actor = Mock(name='_execute_actor')
-            beacon = Mock(name='beacon', autospec=Node)
-            ret = await agent2._prepare_actor(aref, beacon)
-            coro = aref
-            agent2._execute_actor.assert_called_once_with(coro, aref)
-            Task.assert_called_once_with(
-                agent2._execute_actor(), loop=agent2.loop)
-            task = Task()
-            assert task._beacon is beacon
-            assert aref.actor_task is task
-            assert aref in agent2._actors
-            assert ret is aref
 
     @pytest.mark.asyncio
     async def test_prepare_actor__Awaitable_cannot_have_sinks(self, *, agent2):
@@ -543,15 +530,16 @@ class test_Agent:
             (event2, 'bar', True),
         ]
 
+
+
         class AIT:
 
             async def __aiter__(self):
                 for event, value, set_cur_event in values:
-                    if set_cur_event:
-                        stream.current_event = event
-                    else:
-                        stream.current_event = None
+                    stream.current_event = event if set_cur_event else None
                     yield value
+
+
         it = aiter(AIT())
         await agent._slurp(aref, it)
 

@@ -1,4 +1,5 @@
 """In-memory cache backend."""
+
 import sys
 import time
 
@@ -13,10 +14,7 @@ KT = TypeVar('KT')
 VT = TypeVar('VT')
 
 TIME_MONOTONIC: Callable[[], float]
-if sys.platform == 'win32':
-    TIME_MONOTONIC = time.time
-else:
-    TIME_MONOTONIC = time.monotonic
+TIME_MONOTONIC = time.time if sys.platform == 'win32' else time.monotonic
 
 
 class CacheStorage(Generic[KT, VT]):

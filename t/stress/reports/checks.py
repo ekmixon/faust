@@ -144,10 +144,10 @@ class Check(Service):
                      extra={'no_alert': True})
 
     def get_state_for_faults(self, faults: int) -> str:
-        for level, state in self.faults_to_state:
-            if faults > level:
-                return state
-        return states.OK
+        return next(
+            (state for level, state in self.faults_to_state if faults > level),
+            states.OK,
+        )
 
     @property
     def color(self) -> str:

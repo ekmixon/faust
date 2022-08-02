@@ -69,9 +69,7 @@ class Registry(RegistryT):
             if serializer:
                 break
         else:
-            if typ is str:
-                return 'raw'
-            elif typ is bytes:
+            if typ is str or typ is bytes:
                 return 'raw'
         return serializer
 

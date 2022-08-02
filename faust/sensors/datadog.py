@@ -117,7 +117,7 @@ class DatadogStatsClient:
 
     def _encode_labels(self, labels: Optional[Dict]) -> Optional[List[str]]:
         def sanitize(s: str) -> str:
-            return self.sanitize_re.sub(self.re_substitution, str(s))
+            return self.sanitize_re.sub(self.re_substitution, s)
 
         return [f'{sanitize(k)}:{sanitize(v)}'
                 for k, v in labels.items()] if labels else None
@@ -345,7 +345,7 @@ class DatadogMonitor(Monitor):
                       table: Optional[CollectionT] = None) -> Dict:
         labels = {}
         if tp is not None:
-            labels.update(self._format_tp_label(tp))
+            labels |= self._format_tp_label(tp)
         if stream is not None:
             labels.update(self._format_stream_label(stream))
         if table is not None:

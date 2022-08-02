@@ -331,10 +331,10 @@ class Topic(SerializedChannel, TopicT):
                      **kwargs: Any) -> TopicT:
         """Create new topic with configuration derived from this topic."""
         topics = self.topics if topics is None else topics
-        if suffix or prefix:
-            if self.pattern:
-                raise ValueError(
-                    'Cannot add prefix/suffix to Topic with pattern')
+        if suffix and self.pattern or not suffix and prefix and self.pattern:
+            raise ValueError(
+                'Cannot add prefix/suffix to Topic with pattern')
+        elif suffix or prefix:
             topics = [f'{prefix}{topic}{suffix}' for topic in topics]
         return type(self)(
             self.app,
@@ -460,11 +460,13 @@ class Topic(SerializedChannel, TopicT):
         if partitions is None:
             partitions = self.app.conf.topic_partitions
         replicas: int
-        if self.replicas is None:
-            replicas = self.app.conf.topic_replication_factor
-        else:
-            replicas = self.replicas
         if self.app.conf.topic_allow_declare:
+            replicas = (
+                self.app.conf.topic_replication_factor
+                if self.replicas is None
+                else self.replicas
+            )
+
             producer = await self._get_producer()
             for topic in self.topics:
                 await producer.create_topic(
@@ -480,15 +482,14 @@ class Topic(SerializedChannel, TopicT):
     def __aiter__(self) -> ChannelT:
         if self.is_iterator:
             return self
-        else:
-            channel = self.clone(is_iterator=True)
-            # Once the topic is iterated over we add the topic
-            # to app.topics (Conductor).
-            # When the worker starts, the consumer
-            # will use ``list(app.topics)`` to know what topics
-            # to subscribe to.
-            self.app.topics.add(cast(TopicT, channel))
-            return channel
+        channel = self.clone(is_iterator=True)
+        # Once the topic is iterated over we add the topic
+        # to app.topics (Conductor).
+        # When the worker starts, the consumer
+        # will use ``list(app.topics)`` to know what topics
+        # to subscribe to.
+        self.app.topics.add(cast(TopicT, channel))
+        return channel
 
     def __str__(self) -> str:
         return str(self.pattern) if self.pattern else ','.join(self.topics)

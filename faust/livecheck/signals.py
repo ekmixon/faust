@@ -183,8 +183,7 @@ class Signal(BaseSignal[VT]):
             if app.should_stop:
                 break
             try:
-                val = self._get_current_value(key)
-                return val
+                return self._get_current_value(key)
             except KeyError:
                 pass
         raise asyncio.CancelledError()

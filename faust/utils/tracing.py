@@ -53,15 +53,14 @@ def finish_span(span: Optional[opentracing.Span], *,
 def operation_name_from_fun(fun: Any) -> str:
     """Generate opentracing name from function."""
     obj = getattr(fun, '__self__', None)
-    if obj is not None:
-        objlabel = shortlabel(obj)
-        funlabel = shortlabel(fun)
-        if funlabel.startswith(objlabel):
-            # remove obj name from function label
-            funlabel = funlabel[len(objlabel):]
-        return f'{objlabel}-{funlabel}'
-    else:
+    if obj is None:
         return f'{shortlabel(fun)}'
+    objlabel = shortlabel(obj)
+    funlabel = shortlabel(fun)
+    if funlabel.startswith(objlabel):
+        # remove obj name from function label
+        funlabel = funlabel[len(objlabel):]
+    return f'{objlabel}-{funlabel}'
 
 
 def traced_from_parent_span(parent_span: opentracing.Span = None,
@@ -80,8 +79,9 @@ def traced_from_parent_span(parent_span: opentracing.Span = None,
                 child = parent.tracer.start_span(
                     operation_name=operation_name,
                     child_of=parent,
-                    tags={**extra_context, **more_context},
+                    tags=extra_context | more_context,
                 )
+
                 if callback is not None:
                     callback(child)
                 on_exit = (_restore_span, (parent, child))
@@ -89,7 +89,9 @@ def traced_from_parent_span(parent_span: opentracing.Span = None,
                 return call_with_trace(
                     child, fun, on_exit, *args, **kwargs)
             return fun(*args, **kwargs)
+
         return _inner
+
     return _wrapper
 
 

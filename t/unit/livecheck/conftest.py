@@ -26,13 +26,17 @@ def execution():
 
 @pytest.fixture()
 def case(*, livecheck):
+
+
+
     @livecheck.case()
     class test_foo(livecheck.Case):
 
         async def run(self, arg1, kw1=None):
             assert arg1 == 'foo'
             assert kw1 == 1.03
-            assert True
+
+
     return test_foo
 
 

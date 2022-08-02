@@ -134,7 +134,7 @@ def on_default(o: Any,
             o = datetime.datetime(o.year, o.month, o.day, 0, 0, 0, 0)
         r = o.isoformat()
         if r.endswith('+00:00'):
-            r = r[:-6] + 'Z'
+            r = f'{r[:-6]}Z'
         return r
     elif isinstance(o, value_delegate):
         return o.value

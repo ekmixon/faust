@@ -253,8 +253,7 @@ class Case(Service):
         t_prev, self.last_test_received = self.last_test_received, started
         if t_prev:
             time_since = started - t_prev
-            wanted_frequency = self.frequency
-            if wanted_frequency:
+            if wanted_frequency := self.frequency:
                 latency = time_since - wanted_frequency
                 deque_pushpopmax(
                     self.latency_history, latency, self.max_history)
@@ -322,8 +321,7 @@ class Case(Service):
 
     @Service.task
     async def _send_frequency(self) -> None:
-        freq = self.frequency
-        if freq:
+        if freq := self.frequency:
             async for sleep_time in self.itertimer(
                     freq, name=f'{self.name}_send'):
                 if self.app.is_leader():
@@ -386,16 +384,14 @@ class Case(Service):
             self.last_fail = monotonic()
 
     def _maybe_recover_from_failed_state(self) -> None:
-        if self.status != State.PASS:
-            if self._failed_longer_than(self.state_transition_delay):
-                self._set_pass_state(State.PASS)
+        if self.status != State.PASS and self._failed_longer_than(
+            self.state_transition_delay
+        ):
+            self._set_pass_state(State.PASS)
 
     def _failed_longer_than(self, secs: float) -> bool:
         secs_since_fail = self.seconds_since_last_fail
-        if secs_since_fail is None:
-            return True
-        else:
-            return secs_since_fail > secs
+        return True if secs_since_fail is None else secs_since_fail > secs
 
     @property
     def seconds_since_last_fail(self) -> Optional[float]:
@@ -445,8 +441,6 @@ class Case(Service):
                         self.url_error_delay_max,
                     )
                     await self.sleep(error_delay)
-            else:  # pragma: no cover
-                pass
         except ServiceDown as exc:
             # we don't want to propagate this here, keep running...
             await self.on_suite_fail(exc)

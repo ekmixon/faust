@@ -180,9 +180,7 @@ class Store(base.SerializedStore):
         See :meth:`set_persisted_offset`.
         """
         offset = self._db_for_partition(tp.partition).get(self.offset_key)
-        if offset is not None:
-            return int(offset)
-        return None
+        return int(offset) if offset is not None else None
 
     def set_persisted_offset(self, tp: TP, offset: int) -> None:
         """Set the last persisted offset for this table.
@@ -283,10 +281,7 @@ class Store(base.SerializedStore):
             return None
         db, value = dbvalue
 
-        if value is None:
-            if db.key_may_exist(key)[0]:
-                return db.get(key)
-        return value
+        return db.get(key) if value is None and db.key_may_exist(key)[0] else value
 
     def _get_bucket_for_key(self, key: bytes) -> Optional[_DBValueTuple]:
         dbs: Iterable[PartitionDB]
@@ -373,15 +368,13 @@ class Store(base.SerializedStore):
                 self.log.info(
                     'DB for partition %r is locked! Retry in 1s...', partition)
                 await self.sleep(retry_delay)
-        else:  # pragma: no cover
-            ...
+        ...
 
     def _contains(self, key: bytes) -> bool:
-        for db in self._dbs_for_key(key):
-            # bloom filter: false positives possible, but not false negatives
-            if db.key_may_exist(key)[0] and db.get(key) is not None:
-                return True
-        return False
+        return any(
+            db.key_may_exist(key)[0] and db.get(key) is not None
+            for db in self._dbs_for_key(key)
+        )
 
     def _dbs_for_key(self, key: bytes) -> Iterable[DB]:
         # Returns cached db if key is in index, otherwise all dbs

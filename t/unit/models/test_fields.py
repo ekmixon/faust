@@ -36,7 +36,7 @@ class test_FieldDescriptor:
 
     def test_validate(self):
         f = FieldDescriptor()
-        assert list(f.validate('foo')) == []
+        assert not list(f.validate('foo'))
 
 
 class test_BooleanField:

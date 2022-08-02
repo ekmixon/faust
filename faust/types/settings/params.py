@@ -451,19 +451,14 @@ class Param(Generic[IT, OT], property):
         skip_validate = value is None and self.allow_none
         if not skip_validate:
             self.validate_before(value)
-        if value is not None:
-            new_value = self.to_python(conf, value)
-        else:
-            new_value = value
+        new_value = self.to_python(conf, value) if value is not None else value
         if not skip_validate:
             self.validate_after(new_value)
         return new_value
 
     def prepare_init_default(self, conf: _Settings, value: IT) -> OT:
         """Prepare default value for storage."""
-        if value is not None:
-            return self.to_python(conf, value)
-        return None
+        return self.to_python(conf, value) if value is not None else None
 
     def to_python(self, conf: _Settings, value: IT) -> OT:
         """Convert value in input type to its output type."""
@@ -488,9 +483,7 @@ class Bool(Param[Any, bool]):
 
     def to_python(self, conf: _Settings, value: Any) -> bool:
         """Convert given value to :class:`bool`."""
-        if isinstance(value, str):
-            return to_bool(value)
-        return bool(value)
+        return to_bool(value) if isinstance(value, str) else bool(value)
 
 
 class Str(Param[str, str]):
@@ -644,14 +637,13 @@ class Timezone(Param[Union[str, tzinfo], tzinfo]):
     builtin_timezones = {'UTC': timezone.utc}
 
     def to_python(self, conf: _Settings, value: Union[str, tzinfo]) -> tzinfo:
-        if isinstance(value, str):
-            try:
-                return cast(tzinfo, self.builtin_timezones[value.lower()])
-            except KeyError:
-                import pytz
-                return cast(tzinfo, pytz.timezone(value))
-        else:
+        if not isinstance(value, str):
             return value
+        try:
+            return cast(tzinfo, self.builtin_timezones[value.lower()])
+        except KeyError:
+            import pytz
+            return cast(tzinfo, pytz.timezone(value))
 
 
 class BrokerList(Param[BrokerArg, List[_URL]]):

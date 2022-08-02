@@ -15,7 +15,7 @@ async def foo(stream):
 @app.agent()
 async def bar(stream):
     async for value in stream:
-        yield value + 'YOLO'
+        yield f'{value}YOLO'
 
 
 @app.agent()
@@ -43,7 +43,7 @@ def mock_coro(return_value=None, **kwargs):
 
 @pytest.mark.asyncio()
 async def test_foo(test_app):
-    with patch(__name__ + '.bar') as mocked_bar:
+    with patch(f'{__name__}.bar') as mocked_bar:
         mocked_bar.send = mock_coro()
         async with foo.test_context() as agent:
             await agent.put('hey')

@@ -177,12 +177,7 @@ class Message:
         self.time_total: Optional[float] = time_total
 
     def ack(self, consumer: _ConsumerT, n: int = 1) -> bool:
-        if not self.acked:
-            # if no more references, mark offset as safe-to-commit in
-            # Consumer.
-            if not self.decref(n):
-                return self.on_final_ack(consumer)
-        return False
+        return False if self.acked or self.decref(n) else self.on_final_ack(consumer)
 
     def on_final_ack(self, consumer: _ConsumerT) -> bool:
         self.acked = True

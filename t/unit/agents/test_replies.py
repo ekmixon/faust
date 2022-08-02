@@ -60,7 +60,7 @@ class test_BarrierState:
 
         p._results.get.coro.side_effect = se
 
-        assert [x async for x in p.iterate()] == []
+        assert not [x async for x in p.iterate()]
 
     @pytest.mark.asyncio
     async def test_parallel_iterate(self):

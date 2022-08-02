@@ -86,23 +86,21 @@ async def check(forwarded_numbers: Stream[int]) -> None:
         partition = event.message.partition
         assert isinstance(partition, int)
         previous_number = value_by_partition.get(partition, None)
-        if previous_number is not None:
-            if number > 0:
+        if previous_number is not None and number > 0:
                 # consider 0 as the service being restarted.
 
-                if number <= previous_number:
-                    # number should be larger than the previous number.
-                    # if that's not true it means we have a duplicate.
-                    app.log.error('Found duplicate number in %r: %r',
-                                  event.message.tp, number)
-                    found_duplicates += 1
-                else:
-                    if number != previous_number + 1:
-                        # the number should always be exactly one up from the
-                        # last, otherwise we dropped a number.
-                        app.log.error(
-                            'Sequence gap for tp %r: this=%r previous=%r',
-                            event.message.tp, number, previous_number)
-                        found_gaps += 1
+            if number <= previous_number:
+                # number should be larger than the previous number.
+                # if that's not true it means we have a duplicate.
+                app.log.error('Found duplicate number in %r: %r',
+                              event.message.tp, number)
+                found_duplicates += 1
+            elif number != previous_number + 1:
+                # the number should always be exactly one up from the
+                # last, otherwise we dropped a number.
+                app.log.error(
+                    'Sequence gap for tp %r: this=%r previous=%r',
+                    event.message.tp, number, previous_number)
+                found_gaps += 1
         value_by_partition[partition] = number
         counter_received += 1

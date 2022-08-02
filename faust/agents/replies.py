@@ -119,10 +119,9 @@ class BarrierState(ReplyPromise):
         # ReplyConsumer calls this whenever a new reply is received.
         self._results.put_nowait(ReplyTuple(correlation_id, value))
         self.fulfilled += 1
-        if self.total:
-            if self.fulfilled >= self.total:
-                self.set_result(True)
-                self._results.put_nowait(None)  # always wake-up .iterate()
+        if self.total and self.fulfilled >= self.total:
+            self.set_result(True)
+            self._results.put_nowait(None)  # always wake-up .iterate()
 
     def get_nowait(self) -> ReplyTuple:
         """Return next reply, or raise :exc:`asyncio.QueueEmpty`."""

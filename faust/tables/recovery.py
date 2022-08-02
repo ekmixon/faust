@@ -303,8 +303,7 @@ class Recovery(Service):
         self.log.info('Resuming flow...')
         consumer.resume_flow()
         app.flow_control.resume()
-        assignment = consumer.assignment()
-        if assignment:
+        if assignment := consumer.assignment():
             self.log.info('Seek stream partitions to committed offsets.')
             await self._wait(consumer.perform_seek())
             self.log.dev('Resume stream partitions')
@@ -542,10 +541,11 @@ class Recovery(Service):
         if wait_result.stopped:
             # service was stopped.
             raise ServiceStopped()
-        elif self.signal_recovery_start in wait_result.done:
+        elif (
+            self.signal_recovery_start in wait_result.done
+            or self.signal_recovery_reset in wait_result.done
+        ):
             # another rebalance started
-            raise RebalanceAgain()
-        elif self.signal_recovery_reset in wait_result.done:
             raise RebalanceAgain()
         else:
             return None
@@ -555,15 +555,13 @@ class Recovery(Service):
         consumer = self.app.consumer
         self.log.info('Restore complete!')
         await self.app.on_rebalance_complete.send()
-        # This needs to happen if all goes well
-        callback_coros = [
+        if callback_coros := [
             table.on_recovery_completed(
                 self.actives_for_table[table],
                 self.standbys_for_table[table],
             )
             for table in self.tables.values()
-        ]
-        if callback_coros:
+        ]:
             await asyncio.wait(callback_coros)
         assignment = consumer.assignment()
         if assignment:
@@ -785,7 +783,7 @@ class Recovery(Service):
 
     def need_recovery(self) -> bool:
         """Return :const:`True` if recovery is required."""
-        return any(v for v in self.active_remaining().values())
+        return any(self.active_remaining().values())
 
     def active_remaining(self) -> Counter[TP]:
         """Return counter of remaining changes by active partition."""

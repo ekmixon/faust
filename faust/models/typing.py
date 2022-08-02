@@ -170,10 +170,7 @@ class Variable:
         self.getitem = getitem
 
     def __str__(self) -> str:
-        if self.getitem is not None:
-            return f'{self.name}[{self.getitem}]'
-        else:
-            return self.name
+        return self.name if self.getitem is None else f'{self.name}[{self.getitem}]'
 
     def __repr__(self) -> str:
         return f'<{type(self).__name__}: {self}>'
@@ -193,7 +190,7 @@ class Variable:
         name = self.name
         next_ord = ord(name[-1]) + 1
         if next_ord > 122:
-            name = name + 'a'
+            name = f'{name}a'
         return self.clone(
             name=name[:-1] + chr(next_ord),
             getitem=None,
@@ -210,8 +207,8 @@ class Node(abc.ABC):
     expr: Type
     root: 'RootNode'
 
-    def __init_subclass__(self) -> None:
-        self._register()
+    def __init_subclass__(cls) -> None:
+        cls._register()
 
     @classmethod
     def _register(cls) -> None:
@@ -291,9 +288,7 @@ class AnyNode(Node):
     @classmethod
     def create_if_compatible(cls, typ: Type, *,
                              root: 'RootNode') -> Optional['Node']:
-        if typ is Any:
-            return cls(typ, root=root)
-        return None
+        return cls(typ, root=root) if typ is Any else None
 
     def build(self, var: Variable, *args: Type) -> str:
         return f'{var}'
@@ -318,9 +313,7 @@ class UnionNode(Node):
     @classmethod
     def create_if_compatible(cls, typ: Type, *,
                              root: 'RootNode') -> Optional['Node']:
-        if is_union(typ):
-            return cls(typ, root=root)
-        return None
+        return cls(typ, root=root) if is_union(typ) else None
 
     @classmethod
     def _all_types_match(cls, typ: IsInstanceArgT, union_args: Tuple) -> bool:
@@ -329,7 +322,7 @@ class UnionNode(Node):
         )
 
     @classmethod
-    def _filter_NoneType(self, union_args: Tuple) -> Iterator:
+    def _filter_NoneType(cls, union_args: Tuple) -> Iterator:
         return (x for x in union_args if not _is_NoneType(x))
 
     def build(self, var: Variable, *args: Type) -> str:
@@ -358,9 +351,7 @@ class DecimalNode(Node):
     @staticmethod
     def _maybe_coerce(value: Union[str, Decimal] = None) -> Optional[Decimal]:
         if value is not None:
-            if not isinstance(value, Decimal):
-                return str_to_decimal(value)
-            return value
+            return value if isinstance(value, Decimal) else str_to_decimal(value)
         return None
 
 
@@ -379,9 +370,7 @@ class DatetimeNode(Node):
     def _maybe_coerce(
             self, value: Union[str, datetime] = None) -> Optional[datetime]:
         if value is not None:
-            if isinstance(value, str):
-                return self.root.date_parser(value)
-            return value
+            return self.root.date_parser(value) if isinstance(value, str) else value
         return None
 
 
@@ -392,11 +381,12 @@ class NamedTupleNode(Node):
     @classmethod
     def create_if_compatible(cls, typ: Type, *,
                              root: 'RootNode') -> Optional['Node']:
-        if cls._issubclass(typ, cls.compatible_types):
-            if ('_asdict' in typ.__dict__ and
-                    '_make' in typ.__dict__ and
-                    '_fields' in typ.__dict__):
-                return cls(typ, root=root)
+        if cls._issubclass(typ, cls.compatible_types) and (
+            '_asdict' in typ.__dict__
+            and '_make' in typ.__dict__
+            and '_fields' in typ.__dict__
+        ):
+            return cls(typ, root=root)
         return None
 
     def build(self, var: Variable, *args: Type) -> str:
@@ -419,7 +409,7 @@ class NamedTupleNode(Node):
 
     @cached_property
     def global_name(self) -> str:
-        return '_' + self.local_name + '_'
+        return f'_{self.local_name}_'
 
 
 class TupleNode(Node):
@@ -440,9 +430,7 @@ class TupleNode(Node):
         source = '(' + ', '.join(
             self.root.build(var[i], arg)
             for i, arg in enumerate(member_args)) + ')'
-        if ',' not in source:
-            return source[:-1] + ',)'
-        return source
+        return f'{source[:-1]},)' if ',' not in source else source
 
     def _build_untyped_tuple(self, var: Variable) -> str:
         return f'tuple({var})'
@@ -459,9 +447,7 @@ class SetNode(Node):
     use_origin = True
 
     def build(self, var: Variable, *args: Type) -> str:
-        if not args:
-            return f'set({var})'
-        return self._build_set_expression(var, *args)
+        return self._build_set_expression(var, *args) if args else f'set({var})'
 
     def _build_set_expression(self, var: Variable, member_type: Type) -> str:
         member_var = var.next_identifier()
@@ -475,9 +461,7 @@ class DictNode(Node):
     use_origin = True
 
     def build(self, var: Variable, *args: Type) -> str:
-        if not args:
-            return f'dict({var})'
-        return self._build_dict_expression(var, *args)
+        return self._build_dict_expression(var, *args) if args else f'dict({var})'
 
     def _build_dict_expression(self, var: Variable,
                                key_type: Type, value_type: Type) -> str:
@@ -495,9 +479,7 @@ class ListNode(Node):
     use_origin = True
 
     def build(self, var: Variable, *args: Type) -> str:
-        if not args:
-            return f'list({var})'
-        return self._build_list_expression(var, *args)
+        return self._build_list_expression(var, *args) if args else f'list({var})'
 
     def _build_list_expression(self, var: Variable, item_type: Type) -> str:
         item_var = var.next_identifier()
@@ -515,9 +497,7 @@ class ModelNode(Node):
     @classmethod
     def create_if_compatible(cls, typ: Type, *,
                              root: 'RootNode') -> Optional['Node']:
-        if cls._is_model(typ):
-            return cls(typ, root=root)
-        return None
+        return cls(typ, root=root) if cls._is_model(typ) else None
 
     @classmethod
     def _is_model(cls, typ: Type) -> bool:
@@ -542,7 +522,7 @@ class ModelNode(Node):
             self.root.add_closure(model_name, model_global_name, self.Model)
         else:
             model_name = qualname_to_identifier(namespace)
-            model_global_name = '__' + model_name + '__'
+            model_global_name = f'__{model_name}__'
             self.root.add_closure(model_name, model_global_name, self.expr)
         return model_name
 
@@ -563,7 +543,7 @@ class UserNode(Node):
         super().__init__(expr, root)
         self.handler: CoercionHandler = handler
         self.handler_name = qualname_to_identifier(qualname(self.handler))
-        self.handler_global_name = '__' + self.handler_name + '__'
+        self.handler_global_name = f'__{self.handler_name}__'
 
     def __post_init__(self) -> None:
         self.root.found_types[self.type].add(self.expr)
@@ -571,9 +551,7 @@ class UserNode(Node):
     def _maybe_coerce(self, value: Any) -> Any:
         if value is None:
             return None
-        if isinstance(value, JSON_TYPES):
-            return self.handler(value)
-        return value
+        return self.handler(value) if isinstance(value, JSON_TYPES) else value
 
     def build(self, var: Variable, *args: Type) -> str:
         self.root.add_closure(
@@ -609,19 +587,13 @@ class RootNode(Node):
         self.globals = {}
         self.closures = {}
         self.date_parser: Callable[[Any], datetime]
-        if date_parser is not None:
-            self.date_parser = date_parser
-        else:
-            self.date_parser = parse_iso8601
+        self.date_parser = date_parser if date_parser is not None else parse_iso8601
         self.found_types = defaultdict(set)
         super().__init__(expr, root=self)
 
     def find_compatible_node_or_default(self, info: TypeInfo) -> 'Node':
         node = self.find_compatible_node(info)
-        if node is None:
-            return self.new_default_node(info.type)
-        else:
-            return node
+        return self.new_default_node(info.type) if node is None else node
 
     def find_compatible_node(self, info: TypeInfo) -> Optional['Node']:
         for types, handler in self.user_types.items():
@@ -660,7 +632,7 @@ class TypeExpression(RootNode):
             globals = frame.f_globals if globals is None else globals
             locals = frame.f_locals if locals is None else locals
         new_globals = dict(globals or {})
-        new_globals.update(self.globals)
+        new_globals |= self.globals
         if DEBUG:
             print(f'SOURCE FOR {self!r} ->\n{sourcecode}')
         return codegen.build_closure(

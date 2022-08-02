@@ -282,9 +282,7 @@ class Channel(ChannelT[T]):
     def prepare_headers(
             self, headers: Optional[HeadersArg]) -> OpenHeadersArg:
         """Prepare ``headers`` passed before publishing."""
-        if headers is not None:
-            return prepare_headers(headers)
-        return {}
+        return prepare_headers(headers) if headers is not None else {}
 
     async def _send_now(
             self,

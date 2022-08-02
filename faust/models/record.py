@@ -143,7 +143,7 @@ class Record(Model, abstract=True):  # type: ignore
         )
         options.fields = cast(Mapping, fields)
         options.fieldset = frozenset(fields)
-        options.fieldpos = {i: k for i, k in enumerate(fields.keys())}
+        options.fieldpos = dict(enumerate(fields.keys()))
 
         # extract all default values, but only for actual fields.
         options.defaults = {
@@ -159,19 +159,19 @@ class Record(Model, abstract=True):  # type: ignore
         for attr_name in cls.__annotations__:
             if attr_name in cls.__dict__:
                 default_value = cls.__dict__[attr_name]
-                if isinstance(default_value, FieldDescriptorT):
-                    if not default_value.required:
-                        local_defaults.append(attr_name)
-                else:
+                if (
+                    isinstance(default_value, FieldDescriptorT)
+                    and not default_value.required
+                    or not isinstance(default_value, FieldDescriptorT)
+                ):
                     local_defaults.append(attr_name)
-            else:
-                if local_defaults:
-                    raise TypeError(E_NON_DEFAULT_FOLLOWS_DEFAULT.format(
-                        cls_name=cls.__name__,
-                        field_name=attr_name,
-                        fields=pluralize(len(local_defaults), 'field'),
-                        default_names=', '.join(local_defaults),
-                    ))
+            elif local_defaults:
+                raise TypeError(E_NON_DEFAULT_FOLLOWS_DEFAULT.format(
+                    cls_name=cls.__name__,
+                    field_name=attr_name,
+                    fields=pluralize(len(local_defaults), 'field'),
+                    default_names=', '.join(local_defaults),
+                ))
 
         for field, typ in fields.items():
             if is_optional(typ):
@@ -248,10 +248,7 @@ class Record(Model, abstract=True):  # type: ignore
             except KeyError:
                 default, needed = None, True
             descr = getattr(target, field, None)
-            if is_optional(typ):
-                target_type = remove_optional(typ)
-            else:
-                target_type = typ
+            target_type = remove_optional(typ) if is_optional(typ) else typ
             if descr is None or not isinstance(descr, FieldDescriptorT):
                 DescriptorType, tag = field_for_type(target_type)
                 if tag:
@@ -320,13 +317,18 @@ class Record(Model, abstract=True):  # type: ignore
             if d.field != d.input_name
         ]
 
-        return cast(Callable, classmethod(codegen.Function(
-            '_input_translate_fields',
-            ['cls', 'data'],
-            translate if translate else ['pass'],
-            globals=globals(),
-            locals=locals(),
-        )))
+        return cast(
+            Callable,
+            classmethod(
+                codegen.Function(
+                    '_input_translate_fields',
+                    ['cls', 'data'],
+                    translate or ['pass'],
+                    globals=globals(),
+                    locals=locals(),
+                )
+            ),
+        )
 
     @classmethod
     def _BUILD_init(cls) -> Callable[[], None]:
@@ -422,11 +424,10 @@ class Record(Model, abstract=True):  # type: ignore
             descriptor = descriptors[field]
             if descriptor.lazy_coercion:
                 return field  # no initialization
-            else:
-                # call descriptor.to_python
-                init_field_var = f'_init_{field}_'
-                closures[init_field_var] = f'__descr__["{field}"].to_python'
-                return f'{init_field_var}({field})'
+            # call descriptor.to_python
+            init_field_var = f'_init_{field}_'
+            closures[init_field_var] = f'__descr__["{field}"].to_python'
+            return f'{init_field_var}({field})'
 
         preamble = [
             'self.__evaluated_fields__ = set()',

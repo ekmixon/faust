@@ -305,15 +305,11 @@ class BootStrategy(BootStrategyT):
 
     def sensors(self) -> Iterable[ServiceT]:
         """Return list of services required to start sensors."""
-        if self.enable_sensors:
-            return self.app.sensors
-        return []
+        return self.app.sensors if self.enable_sensors else []
 
     def kafka_producer(self) -> Iterable[ServiceT]:
         """Return list of services required to start Kafka producer."""
-        if self._should_enable_kafka_producer():
-            return [self.app.producer]
-        return []
+        return [self.app.producer] if self._should_enable_kafka_producer() else []
 
     def _should_enable_kafka_producer(self) -> bool:
         if self.enable_kafka_producer is None:
@@ -352,9 +348,7 @@ class BootStrategy(BootStrategyT):
 
     def kafka_conductor(self) -> Iterable[ServiceT]:
         """Return list of services required to start Kafka conductor."""
-        if self._should_enable_kafka_consumer():
-            return [self.app.topics]
-        return []
+        return [self.app.topics] if self._should_enable_kafka_consumer() else []
 
     def web_server(self) -> Iterable[ServiceT]:
         """Return list of web-server services."""
@@ -373,9 +367,7 @@ class BootStrategy(BootStrategyT):
 
     def tables(self) -> Iterable[ServiceT]:
         """Return list of table-related services."""
-        if self._should_enable_kafka_consumer():
-            return [self.app.tables]
-        return []
+        return [self.app.tables] if self._should_enable_kafka_consumer() else []
 
 
 class App(AppT, Service):
@@ -726,8 +718,7 @@ class App(AppT, Service):
 
     def _discovery_modules(self) -> List[str]:
         modules: List[str] = []
-        autodiscover = self.conf.autodiscover
-        if autodiscover:
+        if autodiscover := self.conf.autodiscover:
             if isinstance(autodiscover, bool):
                 if self.conf.origin is None:
                     raise ImproperlyConfigured(E_NEED_ORIGIN)
@@ -1411,10 +1402,7 @@ class App(AppT, Service):
                 object is then available as ``fut.result()``.
         """
         chan: ChannelT
-        if isinstance(channel, str):
-            chan = self.topic(channel)
-        else:
-            chan = channel
+        chan = self.topic(channel) if isinstance(channel, str) else channel
         return await chan.send(
             key=key,
             value=value,
@@ -1447,11 +1435,10 @@ class App(AppT, Service):
             # return TransactionManager when
             # processing_guarantee="exactly_once" enabled.
             return self.consumer.transactions
-        else:
-            producer = self.producer
-            # producer may also have been started by app.start()
-            await producer.maybe_start()
-            return producer
+        producer = self.producer
+        # producer may also have been started by app.start()
+        await producer.maybe_start()
+        return producer
 
     async def commit(self, topics: TPorTopicSet) -> bool:
         """Commit offset for acked messages in specified topics'.
@@ -1480,21 +1467,22 @@ class App(AppT, Service):
             await self._producer.flush()
 
     async def _stop_consumer(self) -> None:
-        if self._consumer is not None:
-            consumer = self._consumer
-            try:
-                assignment = consumer.assignment()
-            except ConsumerNotStarted:
-                pass
-            else:
-                if assignment:
-                    self.tables.on_partitions_revoked(assignment)
-                    consumer.stop_flow()
-                    self.flow_control.suspend()
-                    consumer.pause_partitions(assignment)
-                    self.flow_control.clear()
-                    await self._stop_fetcher()
-                    await self._consumer_wait_empty(consumer, self.log)
+        if self._consumer is None:
+            return
+        consumer = self._consumer
+        try:
+            assignment = consumer.assignment()
+        except ConsumerNotStarted:
+            pass
+        else:
+            if assignment:
+                self.tables.on_partitions_revoked(assignment)
+                consumer.stop_flow()
+                self.flow_control.suspend()
+                consumer.pause_partitions(assignment)
+                self.flow_control.clear()
+                await self._stop_fetcher()
+                await self._consumer_wait_empty(consumer, self.log)
 
     async def _consumer_wait_empty(
             self, consumer: ConsumerT, logger: Any) -> None:
@@ -1521,12 +1509,11 @@ class App(AppT, Service):
         span.set_tag('faust_id', self.conf.id)
 
     def on_rebalance_return(self) -> None:
-        sensor_state = self._rebalancing_sensor_state
-        if not sensor_state:
+        if sensor_state := self._rebalancing_sensor_state:
+            self.sensors.on_rebalance_return(self, sensor_state)
+        else:
             self.log.warning('Missing sensor state for rebalance #%s',
                              self.rebalancing_count)
-        else:
-            self.sensors.on_rebalance_return(self, sensor_state)
 
     def on_rebalance_end(self) -> None:
         """Call when rebalancing is done."""
@@ -1562,8 +1549,7 @@ class App(AppT, Service):
             try:
                 self.log.dev('ON PARTITIONS REVOKED')
                 T(self.tables.on_partitions_revoked)(revoked)
-                assignment = consumer.assignment()
-                if assignment:
+                if assignment := consumer.assignment():
                     on_timeout.info('flow_control.suspend()')
                     T(consumer.stop_flow)()
                     T(self.flow_control.suspend)()

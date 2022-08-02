@@ -53,7 +53,7 @@ class CopartitionedAssignor:
         self.topics = set(topics)
 
         assert self.capacity * self._num_clients >= self.num_partitions, \
-            'Not enough capacity'
+                'Not enough capacity'
 
         self._client_assignments = cluster_asgn
 
@@ -136,11 +136,10 @@ class CopartitionedAssignor:
         # Round robin to find standby until we make a full cycle
         for _ in range(self._num_clients):
             assignment = next(candidates)
-            can_assign = (
-                assignment.partition_assigned(partition, active=False) and
-                self._can_assign(assignment, partition, active=True)
-            )
-            if can_assign:
+            if can_assign := (
+                assignment.partition_assigned(partition, active=False)
+                and self._can_assign(assignment, partition, active=True)
+            ):
                 return assignment
         return None
 

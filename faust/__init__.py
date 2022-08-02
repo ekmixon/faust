@@ -99,15 +99,17 @@ def _extract_arg_from_argv(  # pragma: no cover
     return None
 
 
-_datadir = (_extract_arg_from_argv(longopts=('--datadir',)) or
-            os.environ.get('FAUST_DATADIR') or
-            os.environ.get('F_DATADIR'))
-if _datadir:  # pragma: no cover
+if _datadir := (
+    _extract_arg_from_argv(longopts=('--datadir',))
+    or os.environ.get('FAUST_DATADIR')
+    or os.environ.get('F_DATADIR')
+):
     os.environ['FAUST_DATADIR'] = _datadir
-_loop = (_extract_arg_from_argv(shortopts=('-L',), longopts=('--loop',)) or
-         os.environ.get('FAUST_LOOP') or
-         os.environ.get('F_LOOP'))
-if _loop:  # pragma: no cover
+if _loop := (
+    _extract_arg_from_argv(shortopts=('-L',), longopts=('--loop',))
+    or os.environ.get('FAUST_LOOP')
+    or os.environ.get('F_LOOP')
+):
     os.environ['FAUST_LOOP'] = _loop
     import mode.loop
     mode.loop.use(_loop)

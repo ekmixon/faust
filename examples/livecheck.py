@@ -110,9 +110,7 @@ class CreateOrderView(web.View):
         user_id = payload['user_id']
         side = payload['side']
         fake = payload['fake']
-        did_execute_test = payload['did_execute_test']
-
-        if did_execute_test:
+        if did_execute_test := payload['did_execute_test']:
             # LiveCheck read the HTTP headers passed in this request
             # and set up a current_test environment.
             assert livecheck.current_test is not None
@@ -153,9 +151,6 @@ async def create_order(orders: StreamT[Order]) -> None:
 async def execute_order(orders: StreamT[Order]) -> None:
     async for order in orders:
         execution_id = uuid()
-        if not order.fake:
-            # bla bla bla
-            pass
         await test_order.order_executed.send(execution_id)
         print('5. ORDER EXECUTED BY EXECUTION AGENT')
 

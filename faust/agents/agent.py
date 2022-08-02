@@ -552,19 +552,7 @@ class Agent(AgentT, Service):
             actual_stream = stream
 
         res = self.fun(actual_stream)
-        if isinstance(res, AsyncIterable):
-            if we_created_stream:
-                actual_stream.add_processor(self._maybe_unwrap_reply_request)
-            return cast(ActorRefT, AsyncIterableActor(
-                self,
-                actual_stream,
-                res,
-                index=actual_stream.concurrency_index,
-                active_partitions=actual_stream.active_partitions,
-                loop=self.loop,
-                beacon=self.beacon,
-            ))
-        else:
+        if not isinstance(res, AsyncIterable):
             return cast(ActorRefT, AwaitableActor(
                 self,
                 actual_stream,
@@ -574,6 +562,17 @@ class Agent(AgentT, Service):
                 loop=self.loop,
                 beacon=self.beacon,
             ))
+        if we_created_stream:
+            actual_stream.add_processor(self._maybe_unwrap_reply_request)
+        return cast(ActorRefT, AsyncIterableActor(
+            self,
+            actual_stream,
+            res,
+            index=actual_stream.concurrency_index,
+            active_partitions=actual_stream.active_partitions,
+            loop=self.loop,
+            beacon=self.beacon,
+        ))
 
     def add_sink(self, sink: SinkT) -> None:
         """Add new sink to further handle results from this agent."""
@@ -592,19 +591,17 @@ class Agent(AgentT, Service):
             )
         if active_partitions is not None:
             assert channel.active_partitions == active_partitions
-        s = self.app.stream(
+        return self.app.stream(
             channel,
             loop=self.loop,
             active_partitions=active_partitions,
             prefix=self.name,
             beacon=self.beacon,
-            **kwargs)
-        return s
+            **kwargs
+        )
 
     def _maybe_unwrap_reply_request(self, value: V) -> Any:
-        if isinstance(value, ReqRepRequest):
-            return value.value
-        return value
+        return value.value if isinstance(value, ReqRepRequest) else value
 
     async def _start_task(self,
                           *,
@@ -677,12 +674,11 @@ class Agent(AgentT, Service):
                     reply_to = req.reply_to
                     correlation_id = req.correlation_id
                 elif headers:
-                    reply_to_bytes = headers.get('Faust-Ag-ReplyTo')
-                    if reply_to_bytes:
+                    if reply_to_bytes := headers.get('Faust-Ag-ReplyTo'):
                         reply_to = want_str(reply_to_bytes)
-                        correlation_id_bytes = headers.get(
-                            'Faust-Ag-CorrelationId')
-                        if correlation_id_bytes:
+                        if correlation_id_bytes := headers.get(
+                            'Faust-Ag-CorrelationId'
+                        ):
                             correlation_id = want_str(correlation_id_bytes)
                 if reply_to is not None:
                     await self._reply(
@@ -713,9 +709,7 @@ class Agent(AgentT, Service):
         )
 
     def _response_class(self, value: Any) -> Type[ReqRepResponse]:
-        if isinstance(value, ModelT):
-            return ModelReqRepResponse
-        return ReqRepResponse
+        return ModelReqRepResponse if isinstance(value, ModelT) else ReqRepResponse
 
     async def cast(self,
                    value: V = None,
@@ -825,9 +819,7 @@ class Agent(AgentT, Service):
             return req, open_headers
 
     def _request_class(self, value: V) -> Type[ReqRepRequest]:
-        if isinstance(value, ModelT):
-            return ModelReqRepRequest
-        return ReqRepRequest
+        return ModelReqRepRequest if isinstance(value, ModelT) else ReqRepRequest
 
     async def send(self,
                    *,
@@ -992,9 +984,7 @@ class Agent(AgentT, Service):
     def get_topic_names(self) -> Iterable[str]:
         """Return list of topic names this agent subscribes to."""
         channel = self.channel
-        if isinstance(channel, TopicT):
-            return channel.topics
-        return []
+        return channel.topics if isinstance(channel, TopicT) else []
 
     @property
     def channel(self) -> ChannelT:

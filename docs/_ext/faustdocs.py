@@ -5,21 +5,6 @@ try:
 except ImportError:
     from sphinx.environment import NoUri  # noqa
 
-APPATTRS = {
-    'Stream': 'faust.Stream',
-    'TableManager': 'faust.tables.TableManager',
-    'Serializers': 'faust.serializers.Registry',
-    'sensors': 'faust.sensors.SensorDelegate',
-    'serializers': 'faust.serializers.Registry',
-    'sources': 'faust.topics.TopicManager',
-    'tables': 'faust.tables.TableManager',
-    'monitor': 'faust.sensors.Monitor',
-    'consumer': 'faust.transport.base.Consumer',
-    'transport': 'faust.transport.base.Transport',
-    'producer': 'faust.transport.base.Producer',
-
-}
-
 APPDIRECT = {
     'client_only',
     'agents',
@@ -42,7 +27,19 @@ APPDIRECT = {
     'command',
 }
 
-APPATTRS.update({x: 'faust.App.{0}'.format(x) for x in APPDIRECT})
+APPATTRS = {
+    'Stream': 'faust.Stream',
+    'TableManager': 'faust.tables.TableManager',
+    'Serializers': 'faust.serializers.Registry',
+    'sensors': 'faust.sensors.SensorDelegate',
+    'serializers': 'faust.serializers.Registry',
+    'sources': 'faust.topics.TopicManager',
+    'tables': 'faust.tables.TableManager',
+    'monitor': 'faust.sensors.Monitor',
+    'consumer': 'faust.transport.base.Consumer',
+    'transport': 'faust.transport.base.Transport',
+    'producer': 'faust.transport.base.Producer',
+} | {x: 'faust.App.{0}'.format(x) for x in APPDIRECT}
 
 ABBRS = {
     'App': 'faust.App',
@@ -55,18 +52,14 @@ DEFAULT_EMPTY = 'faust.App'
 
 
 def typeify(S, type):
-    if type in ('meth', 'func'):
-        return S + '()'
-    return S
+    return f'{S}()' if type in ('meth', 'func') else S
 
 
 def shorten(S, newtarget, src_dict):
     if S.startswith('@-'):
         return S[2:]
     elif S.startswith('@'):
-        if src_dict is APPATTRS:
-            return '.'.join(['app', S[1:]])
-        return S[1:]
+        return '.'.join(['app', S[1:]]) if src_dict is APPATTRS else S[1:]
     return S
 
 

@@ -319,17 +319,15 @@ def prepare_app(app: AppT, name: Optional[str]) -> AppT:
         app.discover()
     app.worker_init_post_autodiscover()
 
-    # Hack to fix cProfile support.
-    if 1:  # pragma: no cover
-        main = sys.modules.get('__main__')
-        if main is not None and 'cProfile.py' in getattr(main, '__file__', ''):
-            from ..models import registry
-            registry.update({
-                (app.conf.origin or '') + k[8:]: v
-                for k, v in registry.items()
-                if k.startswith('cProfile.')
-            })
-        return app
+    main = sys.modules.get('__main__')
+    if main is not None and 'cProfile.py' in getattr(main, '__file__', ''):
+        from ..models import registry
+        registry.update({
+            (app.conf.origin or '') + k[8:]: v
+            for k, v in registry.items()
+            if k.startswith('cProfile.')
+        })
+    return app
 
 
 # We just use this to apply many @click.option/@click.argument
@@ -355,16 +353,7 @@ class _Group(click.Group):
         return super().get_usage(ctx)
 
     def _maybe_import_app(self, argv: Sequence[str] = sys.argv) -> None:
-        # This is here so that custom AppCommand defined in example/myapp.py
-        # works and is included in --help/usage, etc. when using the faust
-        # command like:
-        #   $ faust -A example.myapp --help
-        #
-        # This is not necessary when using app.main(), since that always
-        # imports the app module before creating the cli() object:
-        #   $ python example/myapp.py --help
-        workdir = self._extract_param(argv, '-W', '--workdir')
-        if workdir:
+        if workdir := self._extract_param(argv, '-W', '--workdir'):
             os.chdir(Path(workdir).absolute())
         appstr = self._extract_param(argv, '-A', '--app')
         if appstr is not None:
@@ -530,8 +519,8 @@ class Command(abc.ABC):
         return _apply_options(cls.options or [])(
             cli.command(help=cls.__doc__)(_inner))
 
-    def __init_subclass__(self, *args: Any, **kwargs: Any) -> None:
-        if self.abstract:
+    def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
+        if cls.abstract:
             # sets the class attribute, so next time
             # Command is inherited from it will have abstract=False,
             # unless you set the attribute again in that subclass::
@@ -541,14 +530,14 @@ class Command(abc.ABC):
             #   class x(MyAbstractCommand):
             #       async def run(self) -> None:
             #           print('just here to experience this execution')
-            self.abstract = False
+            cls.abstract = False
         else:
-            self._click = self.as_click_command()
+            cls._click = cls.as_click_command()
 
         # This hack creates the Command.parse method used to parse
         # command-line arguments in sys.argv and returns a dict.
-        _apply_options(self.builtin_options)(self._parse)
-        _apply_options(self.options or [])(self._parse)
+        _apply_options(cls.builtin_options)(cls._parse)
+        _apply_options(cls.options or [])(cls._parse)
 
     @classmethod
     def parse(cls, argv: Sequence[str]) -> Mapping:
@@ -828,7 +817,7 @@ class AppCommand(Command):
                 '__wrapped__': fun,
                 'options': options,
             }
-            return type(fun.__name__, (cls,), {**fields, **kwargs})
+            return type(fun.__name__, (cls,), fields | kwargs)
 
         return _inner
 
@@ -857,11 +846,10 @@ class AppCommand(Command):
     def _app_from_str(self, appstr: str = None) -> Optional[AppT]:
         if appstr:
             return find_app(appstr)
-        else:
-            if self.require_app:
-                raise self.UsageError(
-                    'Need to specify app using -A parameter')
-            return None
+        if self.require_app:
+            raise self.UsageError(
+                'Need to specify app using -A parameter')
+        return None
 
     def _finalize_concrete_app(self, app: AppT) -> AppT:
         app.finalize()
@@ -876,16 +864,12 @@ class AppCommand(Command):
         paths = []
         p = prog.parent
         # find lowermost path, that is a package
-        while p:
-            if not (p / '__init__.py').is_file():
-                break
+        while p and (p / '__init__.py').is_file():
             paths.append(p)
             p = p.parent
         package = '.'.join(
             [p.name for p in paths] + [prog.with_suffix('').name])
-        if package.endswith('.__main__'):
-            # when `python -m pkg`: remove .__main__ from pkg.__main__
-            package = package[:-9]
+        package = package.removesuffix('.__main__')
         return package
 
     async def on_stop(self) -> None:

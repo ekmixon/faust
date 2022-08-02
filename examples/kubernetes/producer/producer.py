@@ -36,7 +36,7 @@ def connect_kafka_producer():
 
 if __name__ == '__main__':
     kafka_producer = connect_kafka_producer()
-    for index in range(0, 10000):
+    for index in range(10000):
         message = {
             'index': index,
             'value': round(random(), 2),

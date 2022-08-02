@@ -149,7 +149,7 @@ class Personal(OpaqueTag[T]):
             ))
 
     @no_type_check
-    def __class_getitem__(self, params: Any) -> Any:
+    def __class_getitem__(cls, params: Any) -> Any:
         if not issubclass(params, (str, bytes)):
             raise TypeError(f'Personal only supports str/bytes not {params!r}')
         return super().__class_getitem__(params)
@@ -176,7 +176,7 @@ class Sensitive(OpaqueTag[T]):
             tag_type=self._name.lower(),
         ))
 
-    def __class_getitem__(self, params: Any) -> Any:
+    def __class_getitem__(cls, params: Any) -> Any:
         if not issubclass(params, (str, bytes)):
             raise TypeError(f'Personal only supports str/bytes not {params!r}')
 

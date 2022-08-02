@@ -129,10 +129,12 @@ def mock_http_client(*, app, monkeypatch, request) -> ClientSession:
     })
 
     def raise_for_status():
-        if options.max_failures is not None:
-            if session.request.call_count >= options.max_failures:
-                return
-        if 400 <= options.status_code:
+        if (
+            options.max_failures is not None
+            and session.request.call_count >= options.max_failures
+        ):
+            return
+        if options.status_code >= 400:
             raise ClientError()
 
     response = AsyncMock(
@@ -255,8 +257,7 @@ def _recorded_tasks_at_startup(request, loop):
 def tasks_not_lingering(request, loop, event_loop, _recorded_tasks_at_startup):
     allow_lingering_tasks = False
     allow_count = 0
-    marks = request.node.get_closest_marker('allow_lingering_tasks')
-    if marks:
+    if marks := request.node.get_closest_marker('allow_lingering_tasks'):
         allow_lingering_tasks = True
         allow_count = marks.kwargs.get('count', 0)
     try:
@@ -266,8 +267,9 @@ def tasks_not_lingering(request, loop, event_loop, _recorded_tasks_at_startup):
         tasks_now = set(all_tasks(loop=loop))
         if tasks_then != tasks_now:
             request.node._tasks_at_startup = tasks_now
-            pending = {task for task in tasks_now if task and not task.done()}
-            if pending:
+            if pending := {
+                task for task in tasks_now if task and not task.done()
+            }:
                 diff = len(pending - tasks_then)
                 if not allow_lingering_tasks or diff > allow_count:
                     raise DirtyTest(

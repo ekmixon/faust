@@ -297,13 +297,12 @@ class Collection(Service, CollectionT):
         """
         if self.use_partitioner:
             return None
-        else:
-            event = current_event()
-            if event is None:
-                raise TypeError(
-                    'Cannot modify table key from outside of stream iteration')
-            self._verify_source_topic_partitions(event.message.topic)
-            return event.message.partition
+        event = current_event()
+        if event is None:
+            raise TypeError(
+                'Cannot modify table key from outside of stream iteration')
+        self._verify_source_topic_partitions(event.message.topic)
+        return event.message.partition
 
     @lru_cache()
     def _verify_source_topic_partitions(self, source_topic: str) -> None:
@@ -311,17 +310,16 @@ class Collection(Service, CollectionT):
         source_n = self.app.consumer.topic_partitions(source_topic)
         if source_n is not None:
             change_n = self.app.consumer.topic_partitions(change_topic)
-            if change_n is not None:
-                if source_n != change_n:
-                    raise PartitionsMismatch(
-                        E_SOURCE_PARTITIONS_MISMATCH.format(
-                            source_topic=source_topic,
-                            table_name=self.name,
-                            source_n=source_n,
-                            change_topic=change_topic,
-                            change_n=change_n,
-                        ),
-                    )
+            if change_n is not None and source_n != change_n:
+                raise PartitionsMismatch(
+                    E_SOURCE_PARTITIONS_MISMATCH.format(
+                        source_topic=source_topic,
+                        table_name=self.name,
+                        source_n=source_n,
+                        change_topic=change_topic,
+                        change_n=change_n,
+                    ),
+                )
 
     def _on_changelog_sent(self, fut: FutureMessage) -> None:
         # This is what keeps the offset in RocksDB so that at startup
@@ -362,9 +360,9 @@ class Collection(Service, CollectionT):
                     timestamps[0],
                     self._partition_latest_timestamp[partition]):
                 timestamp = heappop(timestamps)
-                keys_to_remove = self._partition_timestamp_keys.pop(
-                    (partition, timestamp), None)
-                if keys_to_remove:
+                if keys_to_remove := self._partition_timestamp_keys.pop(
+                    (partition, timestamp), None
+                ):
                     for key in keys_to_remove:
                         value = self.data.pop(key, None)
                         if key[1][0] > self.last_closed_window:
@@ -380,7 +378,7 @@ class Collection(Service, CollectionT):
 
     def _should_expire_keys(self) -> bool:
         window = self.window
-        return not (window is None or window.expires is None)
+        return window is not None and window.expires is not None
 
     def _maybe_set_key_ttl(self, key: Any, partition: int) -> None:
         if not self._should_expire_keys():
@@ -500,8 +498,7 @@ class Collection(Service, CollectionT):
 
     def _window_ranges(self, timestamp: float) -> Iterator[WindowRange]:
         window = cast(WindowT, self.window)
-        for window_range in window.ranges(timestamp):
-            yield window_range
+        yield from window.ranges(timestamp)
 
     def _relative_now(self, event: EventT = None) -> float:
         # get current timestamp

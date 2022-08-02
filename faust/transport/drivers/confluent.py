@@ -83,17 +83,6 @@ class Consumer(ThreadDelegateConsumer):
                            ensure_created: bool = False) -> None:
         """Create topic on broker."""
         return  # XXX
-        await self._thread.create_topic(
-            topic,
-            partitions,
-            replication,
-            config=config,
-            timeout=int(want_seconds(timeout) * 1000.0),
-            retention=int(want_seconds(retention) * 1000.0),
-            compacting=compacting,
-            deleting=deleting,
-            ensure_created=ensure_created,
-        )
 
     def _to_message(self, tp: TP, record: Any) -> ConsumerMessage:
         # convert timestamp to seconds from int milliseconds.
@@ -287,9 +276,11 @@ class ConfluentConsumerThread(ConsumerThread):
 
     async def earliest_offsets(self,
                                *partitions: TP) -> MutableMapping[TP, int]:
-        if not partitions:
-            return {}
-        return await self.call_thread(self._earliest_offsets, partitions)
+        return (
+            await self.call_thread(self._earliest_offsets, partitions)
+            if partitions
+            else {}
+        )
 
     async def _earliest_offsets(
             self, partitions: List[TP]) -> MutableMapping[TP, int]:
@@ -301,9 +292,11 @@ class ConfluentConsumerThread(ConsumerThread):
         }
 
     async def highwaters(self, *partitions: TP) -> MutableMapping[TP, int]:
-        if not partitions:
-            return {}
-        return await self.call_thread(self._highwaters, partitions)
+        return (
+            await self.call_thread(self._highwaters, partitions)
+            if partitions
+            else {}
+        )
 
     async def _highwaters(
             self, partitions: List[TP]) -> MutableMapping[TP, int]:
@@ -479,21 +472,6 @@ class Producer(base.Producer):
                            ensure_created: bool = False) -> None:
         """Create topic on broker."""
         return  # XXX
-        _retention = (int(want_seconds(retention) * 1000.0)
-                      if retention else None)
-        await cast(Transport, self.transport)._create_topic(
-            self,
-            self._producer.client,
-            topic,
-            partitions,
-            replication,
-            config=config,
-            timeout=int(want_seconds(timeout) * 1000.0),
-            retention=_retention,
-            compacting=compacting,
-            deleting=deleting,
-            ensure_created=ensure_created,
-        )
 
     async def on_start(self) -> None:
         """Call when producer is starting."""
@@ -519,11 +497,6 @@ class Producer(base.Producer):
             on_delivery=fut.set_from_on_delivery,
         )
         return cast(Awaitable[RecordMetadata], fut)
-        try:
-            return cast(Awaitable[RecordMetadata], await self._producer.send(
-                topic, value, key=key, partition=partition))
-        except KafkaException as exc:
-            raise ProducerSendError(f'Error while sending: {exc!r}') from exc
 
     async def send_and_wait(self, topic: str, key: Optional[bytes],
                             value: Optional[bytes],

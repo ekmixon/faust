@@ -73,6 +73,6 @@ def merge_headers(target: OpenHeadersArg,
         source = {want_str(k): want_bytes(v) for k, v in source.items()}
         if isinstance(target, Mapping):
             target = cast(MutableMapping, target)
-            target.update({k: v for k, v in source.items()})
+            target.update(dict(source))
         elif isinstance(target, list):
-            target.extend((h for h in source.items()))
+            target.extend(iter(source.items()))

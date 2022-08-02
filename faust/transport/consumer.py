@@ -212,9 +212,7 @@ class TransactionManager(Service, TransactionManagerT):
                            newly_assigned: Set[TP]) -> None:
         """Call when the cluster is rebalancing."""
         T = traced_from_parent_span()
-        # Stop producers for revoked partitions.
-        revoked_tids = sorted(self._tps_to_transactional_ids(revoked))
-        if revoked_tids:
+        if revoked_tids := sorted(self._tps_to_transactional_ids(revoked)):
             self.log.info(
                 'Stopping %r transactional %s for %r revoked %s...',
                 len(revoked_tids),
@@ -223,9 +221,7 @@ class TransactionManager(Service, TransactionManagerT):
                 pluralize(len(revoked), 'partition'))
             await T(self._stop_transactions, tids=revoked_tids)(revoked_tids)
 
-        # Start produers for assigned partitions
-        assigned_tids = sorted(self._tps_to_transactional_ids(assigned))
-        if assigned_tids:
+        if assigned_tids := sorted(self._tps_to_transactional_ids(assigned)):
             self.log.info(
                 'Starting %r transactional %s for %r assigned %s...',
                 len(assigned_tids),
@@ -456,9 +452,7 @@ class Consumer(Service, ConsumerT):
         """Return list of services this consumer depends on."""
         # We start the TransactionManager only if
         # processing_guarantee='exactly_once'
-        if self.in_transaction:
-            return [self.transactions]
-        return []
+        return [self.transactions] if self.in_transaction else []
 
     def _reset_state(self) -> None:
         self._active_partitions = None
@@ -512,10 +506,11 @@ class Consumer(Service, ConsumerT):
             for tp, offset in _committed_offsets.items()
         })
         committed_offsets = {
-            ensure_TP(tp): offset if offset else None
+            ensure_TP(tp): offset or None
             for tp, offset in _committed_offsets.items()
             if offset is not None
         }
+
         self._committed_offset.update(committed_offsets)
 
     @abc.abstractmethod
@@ -529,7 +524,7 @@ class Consumer(Service, ConsumerT):
         # reset livelock detection
         await self._seek(partition, offset)
         # set new read offset so we will reread messages
-        self._read_offset[ensure_TP(partition)] = offset if offset else None
+        self._read_offset[ensure_TP(partition)] = offset or None
 
     @abc.abstractmethod
     async def _seek(self, partition: TP, offset: int) -> None:
@@ -657,8 +652,8 @@ class Consumer(Service, ConsumerT):
             return
 
         records_it = self.scheduler.iterate(records)
-        to_message = self._to_message  # localize
         if self.flow_active:
+            to_message = self._to_message  # localize
             for tp, record in records_it:
                 if not self.flow_active:
                     break
@@ -678,11 +673,7 @@ class Consumer(Service, ConsumerT):
         is_client_only = self.app.client_only
 
         active_partitions: Optional[Set[TP]]
-        if is_client_only:
-            active_partitions = None
-        else:
-            active_partitions = self._get_active_partitions()
-
+        active_partitions = None if is_client_only else self._get_active_partitions()
         records: RecordMap = {}
         if is_client_only or active_partitions:
             # Fetch records only if active partitions to avoid the risk of
@@ -878,8 +869,7 @@ class Consumer(Service, ConsumerT):
     async def _commit_tps(self,
                           tps: Iterable[TP],
                           start_new_transaction: bool) -> bool:
-        commit_offsets = self._filter_committable_offsets(tps)
-        if commit_offsets:
+        if commit_offsets := self._filter_committable_offsets(tps):
             try:
                 # send all messages attached to the new offset
                 await self._handle_attached(commit_offsets)
@@ -975,23 +965,9 @@ class Consumer(Service, ConsumerT):
         return committed is None or bool(offset) and offset > committed
 
     def _new_offset(self, tp: TP) -> Optional[int]:
-        # get the new offset for this tp, by going through
-        # its list of acked messages.
-        acked = self._acked[tp]
-
-        # We iterate over it until we find a gap
-        # then return the offset before that.
-        # For example if acked[tp] is:
-        #   1 2 3 4 5 6 7 8 9
-        # the return value will be: 9
-        # If acked[tp] is:
-        #  34 35 36 40 41 42 43 44
-        #          ^--- gap
-        # the return value will be: 36
-        if acked:
+        if acked := self._acked[tp]:
             max_offset = max(acked)
-            gap_for_tp = self._gap[tp]
-            if gap_for_tp:
+            if gap_for_tp := self._gap[tp]:
                 gap_index = next((i for i, x in enumerate(gap_for_tp)
                                   if x > max_offset), len(gap_for_tp))
                 gaps = gap_for_tp[:gap_index]
@@ -1063,13 +1039,14 @@ class Consumer(Service, ConsumerT):
                             gap = offset - (r_offset or 0)
                             # We have a gap in income messages
                             if gap > 1 and r_offset:
-                                acks_enabled = acks_enabled_for(message.topic)
-                                if acks_enabled:
+                                if acks_enabled := acks_enabled_for(message.topic):
                                     self._add_gap(tp, r_offset + 1, offset)
-                            if commit_every is not None:
-                                if self._n_acked >= commit_every:
-                                    self._n_acked = 0
-                                    await self.commit()
+                            if (
+                                commit_every is not None
+                                and self._n_acked >= commit_every
+                            ):
+                                self._n_acked = 0
+                                await self.commit()
                             await callback(message)
                             set_read_offset(tp, offset)
                         else:

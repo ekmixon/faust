@@ -121,8 +121,8 @@ class SettingsRegistry(abc.ABC):
             stacklevel=3,
         )
 
-    def __init_subclass__(self) -> None:
-        self._init_subclass_settings()
+    def __init_subclass__(cls) -> None:
+        cls._init_subclass_settings()
 
     @abc.abstractmethod
     def on_init(self, id: str, **kwargs: Any) -> None:
@@ -173,9 +173,10 @@ class SettingsRegistry(abc.ABC):
 
     def __getattribute__(self, key: str) -> Any:
         accessed = object.__getattribute__(self, '_accessed')
-        if not key.startswith('_'):
-            if not object.__getattribute__(self, '_initializing'):
-                accessed.add(key)
+        if not key.startswith('_') and not object.__getattribute__(
+            self, '_initializing'
+        ):
+            accessed.add(key)
         return object.__getattribute__(self, key)
 
     def __setattr__(self, key: str, value: Any) -> None:

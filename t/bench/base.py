@@ -47,12 +47,12 @@ class Benchmark:
         self.create_benchmark_agent()
         self.create_produce_command()
         if main_name == '__main__':
-            # we use this for cProfile
-            bench_args = {
-                'worker': ['worker', '-l', 'info'],
-                'produce': ['produce'],
-            }
             if len(sys.argv) < 2:
+                # we use this for cProfile
+                bench_args = {
+                    'worker': ['worker', '-l', 'info'],
+                    'produce': ['produce'],
+                }
                 sys.argv.extend(bench_args[BENCH_TYPE])
             self.app.main()
 

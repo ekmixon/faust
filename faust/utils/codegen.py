@@ -68,7 +68,7 @@ def build_closure_source(name: str,
         f'{local_name} = {global_name}'
         for local_name, global_name in closures.items()
     ]
-    outer_source = build_function_source(
+    return build_function_source(
         name=outer_name,
         args=outer_args or [],
         body=closure_vars + inner_source.split('\n') + [f'return {name}'],
@@ -77,7 +77,6 @@ def build_closure_source(name: str,
         indentspaces=indentspaces,
         argsep=argsep,
     )
-    return outer_source
 
 
 def build_closure(outer_name: str, source: str, *args: Any,
@@ -120,9 +119,7 @@ def build_function_source(name: str,
     indent = ' ' * indentspaces
     curindent = indent * indentlevel
     nextindent = indent * (indentlevel + 1)
-    return_annotation = ''
-    if return_type is not MISSING:
-        return_annotation = '->_return_type'
+    return_annotation = '->_return_type' if return_type is not MISSING else ''
     bodys = '\n'.join(f'{nextindent}{b}' for b in body)
     return (f'{curindent}def {name}({argsep.join(args)}){return_annotation}:\n'
             f'{bodys}')
@@ -226,9 +223,7 @@ def obj_attrs_tuple(obj_name: str, attrs: List[str]) -> str:
     If attrs is ``['x', 'y']`` and ``obj_name`` is 'self',
     returns ``(self.x,self.y)``.
     """
-    if not attrs:
-        return '()'
-    return f'({",".join([f"{obj_name}.{f}" for f in attrs])},)'
+    return f'({",".join([f"{obj_name}.{f}" for f in attrs])},)' if attrs else '()'
 
 
 def reprkwargs(kwargs: Mapping[str, Any], *,

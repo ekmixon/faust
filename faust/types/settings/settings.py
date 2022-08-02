@@ -209,10 +209,8 @@ class Settings(base.SettingsRegistry):
             # prioritize environment
             if prefix_from_env is not None:
                 self._env_prefix = prefix_from_env
-            else:
-                # then use provided argument
-                if env_prefix is not None:
-                    self._env_prefix = env_prefix
+            elif env_prefix is not None:
+                self._env_prefix = env_prefix
 
     def getenv(self, env_name: str) -> Any:
         if self._env_prefix:
@@ -233,7 +231,7 @@ class Settings(base.SettingsRegistry):
         return self.datadir / f'v{version}'
 
     def find_old_versiondirs(self) -> Iterable[Path]:
-        for version in reversed(range(0, self.version)):
+        for version in reversed(range(self.version)):
             path = self.data_directory_for_version(version)
             if path.is_dir():
                 yield path
@@ -253,9 +251,7 @@ class Settings(base.SettingsRegistry):
         self._id = self._prepare_id(name)  # id is name+version
 
     def _prepare_id(self, id: str) -> str:
-        if self.version > 1:
-            return self.id_format.format(id=id, self=self)
-        return id
+        return self.id_format.format(id=id, self=self) if self.version > 1 else id
 
     def __repr__(self) -> str:
         return f'<{type(self).__name__}: {self.id}>'

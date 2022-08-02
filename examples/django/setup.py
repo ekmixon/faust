@@ -47,9 +47,8 @@ with open(here / NAME / '__init__.py') as meta_fh:
         if line.strip() == '# -eof meta-':
             break
         for pattern, handler in pats.items():
-            m = pattern.match(line.strip())
-            if m:
-                meta.update(handler(m))
+            if m := pattern.match(line.strip()):
+                meta |= handler(m)
 
 # -*- Installation Requires -*-
 
@@ -81,7 +80,7 @@ def reqs(*f):
 if README.exists():
     long_description = README.read_text(encoding='utf-8')
 else:
-    long_description = 'See http://pypi.org/project/{}'.format(NAME)
+    long_description = f'See http://pypi.org/project/{NAME}'
 
 # -*- %%% -*-
 

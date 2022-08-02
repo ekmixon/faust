@@ -451,12 +451,12 @@ class test_settings:
         self.assert_expected(setting.__get__(app.conf), expected_value)
 
         # env prefix passed as argument
-        prefixed_env = {'FOO_' + k: v for k, v in env.items()}
+        prefixed_env = {f'FOO_{k}': v for k, v in env.items()}
         app2 = self.App(env=prefixed_env, env_prefix='FOO_')
         self.assert_expected(setting.__get__(app2.conf), expected_value)
 
         # env prefix set in ENV
-        prefixed_env2 = {'BAR_' + k: v for k, v in env.items()}
+        prefixed_env2 = {f'BAR_{k}': v for k, v in env.items()}
         prefixed_env2['APP_ENV_PREFIX'] = 'BAR_'
         app3 = self.App(env=prefixed_env2)
         assert app3.conf.env_prefix == 'BAR_'

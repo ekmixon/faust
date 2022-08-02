@@ -554,7 +554,7 @@ class test_App:
                 app.main()
 
             z = app.conf.autodiscover
-            assert z is False
+            assert not z
 
             app.finalize.assert_called_once_with()
             app.worker_init.assert_called_once_with()

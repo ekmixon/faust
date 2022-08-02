@@ -110,7 +110,7 @@ class worker(AppCommand):
 
     def _banner_data(self, worker: Worker) -> TableDataT:
         app = cast(FaustWorker, worker).app
-        logfile = worker.logfile if worker.logfile else '-stderr-'
+        logfile = worker.logfile or '-stderr-'
         loglevel = level_name(worker.loglevel or 'WARN').lower()
         transport_extra = self._human_transport_info(worker.loop)
         return list(filter(None, [
@@ -142,9 +142,7 @@ class worker(AppCommand):
     def _human_transport_info(self, loop: Any) -> str:
         # uvloop didn't leave us with any way to identify itself,
         # and also there's no uvloop.__version__ attribute.
-        if loop.__class__.__module__ == 'uvloop':
-            return '+uvloop'
-        return ''
+        return '+uvloop' if loop.__class__.__module__ == 'uvloop' else ''
 
     def _driver_versions(self, app: AppT) -> List[str]:
         return [

@@ -171,12 +171,11 @@ class FieldDescriptor(FieldDescriptorT[T]):
         self._to_python = self._compile_type_expression()
 
     def _prepare_type_expression(self) -> TypeExpression:
-        expr = TypeExpression(
+        return TypeExpression(
             self.type,
             user_types=self.options['model_coercions'],
             date_parser=self.date_parser,
         )
-        return expr
 
     def _compile_type_expression(self) -> Optional[Callable[[T], T]]:
         assert self._expr is not None
@@ -285,10 +284,7 @@ class FieldDescriptor(FieldDescriptorT[T]):
 
     def __set__(self, instance: Any, value: T) -> None:
         value = cast(T, self.prepare_value(value))
-        if self.tag:
-            value = cast(T, self.tag(value, field=self.field))
-        else:
-            value = value
+        value = cast(T, self.tag(value, field=self.field)) if self.tag else value
         instance.__dict__[self.field] = value
 
     def __repr__(self) -> str:
@@ -321,9 +317,7 @@ class BooleanField(FieldDescriptor[bool]):
 
     def prepare_value(self, value: Any, *,
                       coerce: bool = None) -> Optional[bool]:
-        if self.should_coerce(value, coerce):
-            return True if value else False
-        return value
+        return bool(value) if self.should_coerce(value, coerce) else value
 
 
 class NumberField(FieldDescriptor[T]):
@@ -345,13 +339,11 @@ class NumberField(FieldDescriptor[T]):
 
     def validate(self, value: T) -> Iterable[ValidationError]:
         val = cast(int, value)
-        max_ = self.max_value
-        if max_:
+        if max_ := self.max_value:
             if val > max_:
                 yield self.validation_error(
                     f'{self.field} cannot be more than {max_}')
-        min_ = self.min_value
-        if min_:
+        if min_ := self.min_value:
             if val < min_:
                 yield self.validation_error(
                     f'{self.field} must be at least {min_}')
@@ -388,12 +380,11 @@ class DecimalField(NumberField[Decimal]):
         })
 
     def to_python(self, value: Any) -> Any:
-        if self._to_python is None:
-            if self.model._options.decimals:
-                return self.prepare_value(value, coerce=True)
-            return self.prepare_value(value)
-        else:
+        if self._to_python is not None:
             return self._to_python(value)
+        if self.model._options.decimals:
+            return self.prepare_value(value, coerce=True)
+        return self.prepare_value(value)
 
     def prepare_value(self, value: Any, *,
                       coerce: bool = None) -> Optional[Decimal]:
@@ -405,14 +396,12 @@ class DecimalField(NumberField[Decimal]):
 
         decimal_tuple: Optional[DecimalTuple] = None
 
-        mdp = self.max_decimal_places
-        if mdp:
+        if mdp := self.max_decimal_places:
             decimal_tuple = value.as_tuple()
             if abs(decimal_tuple.exponent) > mdp:
                 yield self.validation_error(
                     f'{self.field} must have less than {mdp} decimal places.')
-        max_digits = self.max_digits
-        if max_digits:
+        if max_digits := self.max_digits:
             if decimal_tuple is None:
                 decimal_tuple = value.as_tuple()
             digits = len(decimal_tuple.digits[:decimal_tuple.exponent])
@@ -452,49 +441,42 @@ class CharField(FieldDescriptor[CharacterType]):
             yield self.validation_error(f'{self.field} cannot be left blank')
         max_ = self.max_length
         length = len(value)
-        min_ = self.min_length
-        if min_:
+        if min_ := self.min_length:
             if length < min_:
                 chars = pluralize(min_, 'character')
                 yield self.validation_error(
                     f'{self.field} must have at least {min_} {chars}')
-        if max_:
-            if length > max_:
-                chars = pluralize(max_, 'character')
-                yield self.validation_error(
-                    f'{self.field} must be at least {max_} {chars}')
+        if max_ and length > max_:
+            chars = pluralize(max_, 'character')
+            yield self.validation_error(
+                f'{self.field} must be at least {max_} {chars}')
 
 
 class StringField(CharField[str]):
 
     def prepare_value(self, value: Any, *,
                       coerce: bool = None) -> Optional[str]:
-        if self.should_coerce(value, coerce):
-            val = str(value) if not isinstance(value, str) else value
-            if self.trim_whitespace:
-                return val.strip()
-            return val
-        else:
+        if not self.should_coerce(value, coerce):
             return value
+        val = value if isinstance(value, str) else str(value)
+        return val.strip() if self.trim_whitespace else val
 
 
 class DatetimeField(FieldDescriptor[datetime]):
 
     def to_python(self, value: Any) -> Any:
-        if self._to_python is None:
-            if self.model._options.isodates:
-                return self.prepare_value(value, coerce=True)
-            return self.prepare_value(value)
-        else:
+        if self._to_python is not None:
             return self._to_python(value)
+        if self.model._options.isodates:
+            return self.prepare_value(value, coerce=True)
+        return self.prepare_value(value)
 
     def prepare_value(self, value: Any, *,
                       coerce: bool = None) -> Optional[datetime]:
-        if self.should_coerce(value, coerce):
-            if value is not None and not isinstance(value, datetime):
-                return self.date_parser(value)
-            else:
-                return value
+        if not self.should_coerce(value, coerce):
+            return value
+        if value is not None and not isinstance(value, datetime):
+            return self.date_parser(value)
         else:
             return value
 
@@ -519,16 +501,15 @@ class BytesField(CharField[bytes]):
 
     def prepare_value(self, value: Any, *,
                       coerce: bool = None) -> Optional[bytes]:
-        if self.should_coerce(value, coerce):
-            if isinstance(value, bytes):
-                val = value
-            else:
-                val = cast(str, value).encode(encoding=self.encoding)
-            if self.trim_whitespace:
-                return val.strip()
-            return val
-        else:
+        if not self.should_coerce(value, coerce):
             return value
+        val = (
+            value
+            if isinstance(value, bytes)
+            else cast(str, value).encode(encoding=self.encoding)
+        )
+
+        return val.strip() if self.trim_whitespace else val
 
 
 TYPE_TO_FIELD = {

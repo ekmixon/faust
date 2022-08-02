@@ -144,7 +144,7 @@ class Blueprint(BlueprintT):
                name: Optional[str] = None) -> None:
         """Add static route."""
         _name: str = name or 'static'
-        if not _name.startswith(self.name + '.'):
+        if not _name.startswith(f'{self.name}.'):
             _name = f'{self.name}.{name}'
         fut = FutureStaticRoute(uri, Path(file_or_directory), _name)
         self.static_routes.append(fut)
@@ -188,9 +188,7 @@ class Blueprint(BlueprintT):
         ...
 
     def _url_with_prefix(self, url: str, prefix: str = None) -> str:
-        if prefix:
-            return prefix.rstrip('/') + '/' + url.lstrip('/')
-        return url
+        return prefix.rstrip('/') + '/' + url.lstrip('/') if prefix else url
 
     def _apply_static_route(self,
                             web: Web,

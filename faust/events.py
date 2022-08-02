@@ -116,10 +116,7 @@ class Event(EventT):
         self.value: V = value
         self.message: Message = message
         if headers is not None:
-            if not isinstance(headers, dict):
-                self.headers = dict(headers)
-            else:
-                self.headers = headers
+            self.headers = headers if isinstance(headers, dict) else dict(headers)
         else:
             self.headers = {}
 
@@ -176,9 +173,7 @@ class Event(EventT):
         if value is USE_EXISTING_VALUE:
             value = self.message.value
         if headers is USE_EXISTING_HEADERS:
-            headers = self.message.headers
-            if not headers:
-                headers = None
+            headers = self.message.headers or None
         return await self._send(
             channel,
             key,

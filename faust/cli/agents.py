@@ -47,7 +47,7 @@ class agents(AppCommand):
         ]
 
     def _name(self, agent: AgentT) -> str:
-        return '@' + self.abbreviate_fqdn(agent.name)
+        return f'@{self.abbreviate_fqdn(agent.name)}'
 
     def _maybe_topic(self, agent: AgentT) -> Optional[str]:
         try:

@@ -40,6 +40,8 @@ DEFAULT_LEVEL: int = logging.WARNING
 def _build_sentry_handler() -> Type[_SentryHandler]:
     from raven.handlers import logging as _logging
 
+
+
     class FaustSentryHandler(_logging.SentryHandler):  # type: ignore
         # 1) We override SentryHandler to write internal log messages
         #    mto sys.__stderr__ instead of sys.stderr, as the latter
@@ -61,9 +63,10 @@ def _build_sentry_handler() -> Type[_SentryHandler]:
             # Returns true if this log record is associated with a
             # CancelledError.is_expected exception.
             if record.exc_info and record.exc_info[0] is not None:
-                return bool(
-                    issubclass(record.exc_info[0], asyncio.CancelledError) and
-                    getattr(record.exc_info[1], 'is_expected', True))
+                return issubclass(
+                    record.exc_info[0], asyncio.CancelledError
+                ) and getattr(record.exc_info[1], 'is_expected', True)
+
             return False
 
         def emit(self, record: logging.LogRecord) -> None:
@@ -85,6 +88,7 @@ def _build_sentry_handler() -> Type[_SentryHandler]:
         def carp(self, obj: Any) -> None:
             print(_logging.to_string(obj), file=sys.__stderr__)
 
+
     return FaustSentryHandler
 
 
@@ -100,7 +104,6 @@ def handler_from_dsn(dsn: str = None,
     if raven_aiohttp is None:
         raise ImproperlyConfigured(
             'faust.contrib.sentry requires the `raven_aiohttp` library.')
-    level: int = loglevel if loglevel is not None else DEFAULT_LEVEL
     if dsn:
         client = raven.Client(
             dsn=dsn,
@@ -113,6 +116,7 @@ def handler_from_dsn(dsn: str = None,
             disable_existing_loggers=False,
             **kwargs)
         handler = _build_sentry_handler()(client)
+        level: int = loglevel if loglevel is not None else DEFAULT_LEVEL
         handler.setLevel(level)
         return handler
     return None

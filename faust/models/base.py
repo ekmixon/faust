@@ -238,21 +238,7 @@ class Model(ModelT):
         data = loads(ser, s)
         return cls.from_data(data)
 
-    def __init_subclass__(self,
-                          serializer: str = None,
-                          namespace: str = None,
-                          include_metadata: bool = None,
-                          isodates: bool = None,
-                          abstract: bool = False,
-                          allow_blessed_key: bool = None,
-                          decimals: bool = None,
-                          coerce: bool = None,
-                          coercions: CoercionMapping = None,
-                          polymorphic_fields: bool = None,
-                          validation: bool = None,
-                          date_parser: Callable[[Any], datetime] = None,
-                          lazy_creation: bool = False,
-                          **kwargs: Any) -> None:
+    def __init_subclass__(cls, serializer: str = None, namespace: str = None, include_metadata: bool = None, isodates: bool = None, abstract: bool = False, allow_blessed_key: bool = None, decimals: bool = None, coerce: bool = None, coercions: CoercionMapping = None, polymorphic_fields: bool = None, validation: bool = None, date_parser: Callable[[Any], datetime] = None, lazy_creation: bool = False, **kwargs: Any) -> None:
         # Python 3.6 added the new __init_subclass__ function that
         # makes it possible to initialize subclasses without using
         # metaclasses (:pep:`487`).
@@ -263,7 +249,7 @@ class Model(ModelT):
         #   cls.__is_abstract__ = False
         # To fix this we simply delegate to a _init_subclass classmethod.
         finalizer = partial(
-            self._init_subclass,
+            cls._init_subclass,
             serializer,
             namespace,
             include_metadata,
@@ -277,10 +263,11 @@ class Model(ModelT):
             validation,
             date_parser,
         )
+
         if lazy_creation:
-            self._pending_finalizers = [finalizer]
+            cls._pending_finalizers = [finalizer]
         else:
-            self._pending_finalizers = None
+            cls._pending_finalizers = None
             finalizer()
 
     @classmethod
@@ -438,7 +425,7 @@ class Model(ModelT):
         ...
 
     def is_valid(self) -> bool:
-        return True if not self.validate() else False
+        return not self.validate()
 
     def validate(self) -> List[ValidationError]:
         errors = self.__validation_errors__
@@ -447,8 +434,7 @@ class Model(ModelT):
         return errors
 
     def validate_or_raise(self) -> None:
-        errors = self.validate()
-        if errors:
+        if errors := self.validate():
             raise errors[0]
 
     def _itervalidate(self) -> Iterable[ValidationError]:

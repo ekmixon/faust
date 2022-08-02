@@ -37,10 +37,10 @@ class ProducerBuffer(Service, ProducerBufferT):
 
     async def flush(self) -> None:
         """Flush all messages (draining the buffer)."""
-        get_pending = self.pending.get_nowait
-        send_pending = self._send_pending
-
         if self.size:
+            get_pending = self.pending.get_nowait
+            send_pending = self._send_pending
+
             while True:
                 try:
                     msg = get_pending()

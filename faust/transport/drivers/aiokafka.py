@@ -421,12 +421,7 @@ class AIOKafkaConsumerThread(ConsumerThread):
     def _transform_span_lazy(self, span: opentracing.Span) -> None:
         # XXX slow
         consumer = self
-        if typing.TYPE_CHECKING:
-            # MyPy completely disallows the statements below
-            # claiming it is an illegal dynamic baseclass.
-            # We know mypy, but do it anyway :D
-            pass
-        else:
+        if not typing.TYPE_CHECKING:
             cls = span.__class__
 
             class LazySpan(cls):
@@ -560,10 +555,10 @@ class AIOKafkaConsumerThread(ConsumerThread):
         parent = cast(Consumer, self.consumer)
         app = parent.app
         monitor = app.monitor
-        acks_enabled_for = app.topics.acks_enabled_for
-        secs_since_started = now - self.time_started
-
         if monitor is not None:  # need for .stream_inbound_time
+            acks_enabled_for = app.topics.acks_enabled_for
+            secs_since_started = now - self.time_started
+
             highwater = self.highwater(tp)
             committed_offset = parent._committed_offset.get(tp)
             has_acks = acks_enabled_for(tp.topic)
@@ -576,54 +571,57 @@ class AIOKafkaConsumerThread(ConsumerThread):
                     )
                 return None
 
-            if has_acks and committed_offset is not None:
-                if highwater > committed_offset:
-                    inbound = monitor.stream_inbound_time.get(tp)
-                    if inbound is None:
-                        if secs_since_started >= self.tp_stream_timeout_secs:
-                            # AIOKAFKA IS FETCHING BUT STREAM IS NOT
-                            # PROCESSING EVENTS (no events at all since
-                            # start).
-                            self._log_slow_processing_stream(
-                                SLOW_PROCESSING_STREAM_IDLE_SINCE_START,
-                                tp, humanize_seconds_ago(secs_since_started),
-                            )
-                        return None
-
-                    secs_since_stream = now - inbound
-                    if secs_since_stream >= self.tp_stream_timeout_secs:
-                        # AIOKAFKA IS FETCHING, AND STREAM WAS WORKING
-                        # BEFORE BUT NOW HAS STOPPED PROCESSING
-                        # (or processing of an event in the stream takes
-                        #  longer than tp_stream_timeout_secs).
+            if (
+                has_acks
+                and committed_offset is not None
+                and highwater > committed_offset
+            ):
+                inbound = monitor.stream_inbound_time.get(tp)
+                if inbound is None:
+                    if secs_since_started >= self.tp_stream_timeout_secs:
+                        # AIOKAFKA IS FETCHING BUT STREAM IS NOT
+                        # PROCESSING EVENTS (no events at all since
+                        # start).
                         self._log_slow_processing_stream(
-                            SLOW_PROCESSING_STREAM_IDLE,
-                            tp, humanize_seconds_ago(secs_since_stream),
+                            SLOW_PROCESSING_STREAM_IDLE_SINCE_START,
+                            tp, humanize_seconds_ago(secs_since_started),
+                        )
+                    return None
+
+                secs_since_stream = now - inbound
+                if secs_since_stream >= self.tp_stream_timeout_secs:
+                    # AIOKAFKA IS FETCHING, AND STREAM WAS WORKING
+                    # BEFORE BUT NOW HAS STOPPED PROCESSING
+                    # (or processing of an event in the stream takes
+                    #  longer than tp_stream_timeout_secs).
+                    self._log_slow_processing_stream(
+                        SLOW_PROCESSING_STREAM_IDLE,
+                        tp, humanize_seconds_ago(secs_since_stream),
+                    )
+                    return None
+
+                last_commit = self.tp_last_committed_at.get(tp)
+                if last_commit is None:
+                    if secs_since_started >= self.tp_commit_timeout_secs:
+                        # AIOKAFKA IS FETCHING AND STREAM IS PROCESSING
+                        # BUT WE HAVE NOT COMMITTED ANYTHING SINCE WORKER
+                        # START.
+                        self._log_slow_processing_commit(
+                            SLOW_PROCESSING_NO_COMMIT_SINCE_START,
+                            tp, humanize_seconds_ago(secs_since_started),
                         )
                         return None
-
-                    last_commit = self.tp_last_committed_at.get(tp)
-                    if last_commit is None:
-                        if secs_since_started >= self.tp_commit_timeout_secs:
-                            # AIOKAFKA IS FETCHING AND STREAM IS PROCESSING
-                            # BUT WE HAVE NOT COMMITTED ANYTHING SINCE WORKER
-                            # START.
-                            self._log_slow_processing_commit(
-                                SLOW_PROCESSING_NO_COMMIT_SINCE_START,
-                                tp, humanize_seconds_ago(secs_since_started),
-                            )
-                            return None
-                    else:
-                        secs_since_commit = now - last_commit
-                        if secs_since_commit >= self.tp_commit_timeout_secs:
-                            # AIOKAFKA IS FETCHING AND STREAM IS PROCESSING
-                            # BUT WE HAVE NOT COMITTED ANYTHING IN A WHILE
-                            # (commit offset is not advancing).
-                            self._log_slow_processing_commit(
-                                SLOW_PROCESSING_NO_RECENT_COMMIT,
-                                tp, humanize_seconds_ago(secs_since_commit),
-                            )
-                            return None
+                else:
+                    secs_since_commit = now - last_commit
+                    if secs_since_commit >= self.tp_commit_timeout_secs:
+                        # AIOKAFKA IS FETCHING AND STREAM IS PROCESSING
+                        # BUT WE HAVE NOT COMITTED ANYTHING IN A WHILE
+                        # (commit offset is not advancing).
+                        self._log_slow_processing_commit(
+                            SLOW_PROCESSING_NO_RECENT_COMMIT,
+                            tp, humanize_seconds_ago(secs_since_commit),
+                        )
+                        return None
 
     def verify_recovery_event_path(self, now: float, tp: TP) -> None:
         self._verify_aiokafka_event_path(now, tp)
@@ -957,9 +955,7 @@ class Producer(base.Producer):
         )
 
     def _settings_extra(self) -> Mapping[str, Any]:
-        if self.app.in_transaction:
-            return {'acks': 'all'}
-        return {}
+        return {'acks': 'all'} if self.app.in_transaction else {}
 
     def _new_producer(self) -> aiokafka.AIOKafkaProducer:
         return self._producer_type(
@@ -1041,9 +1037,8 @@ class Producer(base.Producer):
                    transactional_id: str = None) -> Awaitable[RecordMetadata]:
         """Schedule message to be transmitted by producer."""
         producer = self._ensure_producer()
-        if headers is not None:
-            if isinstance(headers, Mapping):
-                headers = list(headers.items())
+        if headers is not None and isinstance(headers, Mapping):
+            headers = list(headers.items())
         self._send_on_produce_message(
             key=key, value=value,
             partition=partition,
@@ -1221,12 +1216,11 @@ class Transport(base.Transport):
         owner.log.debug('Found controller: %r', controller_node)
 
         if controller_node is None:
-            if owner.should_stop:
-                owner.log.info('Shutting down hence controller not found')
-                return
-            else:
+            if not owner.should_stop:
                 raise Exception('Controller node is None')
 
+            owner.log.info('Shutting down hence controller not found')
+            return
         request = CreateTopicsRequest[protocol_version](
             [(topic, partitions, replication, [], list(config.items()))],
             timeout,

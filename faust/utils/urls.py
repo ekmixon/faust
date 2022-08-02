@@ -55,10 +55,7 @@ def _find_first_actual_scheme(
 def _prepare_str_url(s: str, default_scheme: str = None) -> str:
     # yarl.URL parses b:9092 into scheme=b,port=9092
     # where we would expect it to be scheme=None,host=b,port=9092
-    if default_scheme:
-        if '://' not in s:
-            return f'{default_scheme}://{s}'
-    return s
+    return f'{default_scheme}://{s}' if default_scheme and '://' not in s else s
 
 
 def _ensure_scheme(default_scheme: Optional[str], url: Union[URL]) -> URL:
